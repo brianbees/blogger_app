@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Blogger App</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .post { border: 1px solid #ccc; padding: 10px; margin: 10px 0; }
+        .post-title { font-size: 24px; font-weight: bold; }
+        .post-meta { color: #666; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h1>Blog Posts</h1>
+    <a href="/post/new">Create New Post</a>
+    {% for post in posts %}
+    <div class="post">
+        <div class="post-title">{{ post.title }}</div>
+        <div class="post-meta">By {{ post.author }} on {{ post.created_at }}</div>
+        <p>{{ post.content[:200] }}...</p>
+        <a href="/post/{{ post.id }}">Read more</a>
+    </div>
+    {% endfor %}
+</body>
+</html>
