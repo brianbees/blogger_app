@@ -12,10 +12,31 @@ A simple blogging application for creating and managing blog posts.
 
 ## Setup
 
-1. Install dependencies
-2. Run the application
-3. Access at http://localhost:3000
+1. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. Run the application:
+   ```bash
+   python app.py
+   ```
+
+3. Access at http://localhost:5000
+
+## Running Tests
+
+```bash
+python test_app.py
+```
+
+## Branch Synchronization
+
+If your branch diverges from main, see [SYNC_GUIDE.md](SYNC_GUIDE.md) for instructions on how to synchronize.
 
 ## Usage
 
-This application provides a RESTful API for managing blog posts.
+This application provides a web interface for managing blog posts:
+- Home page: View all blog posts
+- Create new post: `/post/new`
+- View individual post: `/post/<id>`
