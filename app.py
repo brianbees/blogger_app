@@ -11,6 +11,7 @@ app.config.from_object(Config)
 
 # In-memory storage for blog posts
 posts = []
+next_post_id = 1
 
 @app.route('/')
 def index():
@@ -20,15 +21,17 @@ def index():
 @app.route('/post/new', methods=['GET', 'POST'])
 def new_post():
     """Create a new blog post"""
+    global next_post_id
     if request.method == 'POST':
         post = {
-            'id': len(posts) + 1,
+            'id': next_post_id,
             'title': request.form['title'],
             'content': request.form['content'],
             'author': request.form['author'],
             'created_at': datetime.now()
         }
         posts.append(post)
+        next_post_id += 1
         return redirect(url_for('index'))
     return render_template('new_post.html')
 
