@@ -129,34 +129,39 @@ function App() {
 
     try {
       const now = new Date();
+      
       const snippet = {
         id: generateId(),
         type: 'image',
         timestamp: now.getTime(),
         createdAt: now.getTime(),
         dayKey: getDayKey(now),
-        mediaBlob: imageFile,
+        mediaBlob: imageFile, // File is a subtype of Blob
         caption: caption,
+        dataVersion: 1,
         syncStatus: 'local',
       };
-
+      
       await saveSnippet(snippet);
       
       await loadSnippets();
       setRefreshTrigger(prev => prev + 1);
       setSelectedImageFile(null);
-      showToast('Image saved successfully', 'info');
+      // Don't show success toast, just close the sheet
     } catch (err) {
+      console.error('Failed to save image:', err);
       if (err instanceof StorageError) {
-        setStorageError(err.message);
+        const errorMsg = err.message || 'Unknown storage error';
+        setStorageError(errorMsg);
         if (err.code === 'QUOTA_EXCEEDED') {
           showToast('Storage quota exceeded! Please free up space', 'error');
         } else {
-          showToast('Failed to save image', 'error');
+          showToast(errorMsg, 'error');
         }
       } else {
-        setStorageError('Failed to save image');
-        showToast('Failed to save image', 'error');
+        const errorMsg = err.message || 'Unknown error';
+        setStorageError(errorMsg);
+        showToast(errorMsg, 'error');
       }
     } finally {
       setIsSaving(false);

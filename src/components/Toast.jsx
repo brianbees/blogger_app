@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-export default function Toast({ message, type = 'error', onClose, duration = 3000 }) {
+export default function Toast({ message, type = 'error', onClose, duration = 5000 }) {
   useEffect(() => {
     if (duration > 0) {
       const timer = setTimeout(onClose, duration);

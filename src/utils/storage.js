@@ -1,7 +1,7 @@
 import { openDB } from 'idb';
 
 const DB_NAME = 'voice-journal';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const SNIPPETS_STORE = 'snippets';
 const DATA_VERSION = 1;
 
@@ -31,6 +31,18 @@ async function getDB() {
           const store = transaction.objectStore(SNIPPETS_STORE);
           if (!store.indexNames.contains('dataVersion')) {
             store.createIndex('dataVersion', 'dataVersion', { unique: false });
+          }
+        }
+        
+        if (oldVersion < 3) {
+          const store = transaction.objectStore(SNIPPETS_STORE);
+          // Add timestamp index for image snippets
+          if (!store.indexNames.contains('timestamp')) {
+            store.createIndex('timestamp', 'timestamp', { unique: false });
+          }
+          // Add type index for filtering by snippet type
+          if (!store.indexNames.contains('type')) {
+            store.createIndex('type', 'type', { unique: false });
           }
         }
       },
@@ -84,11 +96,17 @@ export async function saveSnippet(snippet) {
     
     // Validate that blob data is present and is a Blob
     if (snippet.type === 'image') {
+      if (!snippet.mediaBlob) {
+        throw new StorageError('Image snippet missing mediaBlob', 'INVALID_DATA');
+      }
       if (!(snippet.mediaBlob instanceof Blob)) {
         throw new StorageError('mediaBlob must be a Blob object for image snippets', 'INVALID_DATA');
       }
     } else {
       // Default to audio type for backward compatibility
+      if (!snippet.audioBlob) {
+        throw new StorageError('Audio snippet missing audioBlob', 'INVALID_DATA');
+      }
       if (!(snippet.audioBlob instanceof Blob)) {
         throw new StorageError('audioBlob must be a Blob object for audio snippets', 'INVALID_DATA');
       }
@@ -101,6 +119,7 @@ export async function saveSnippet(snippet) {
     
     await db.put(SNIPPETS_STORE, snippetWithVersion);
   } catch (err) {
+    console.error('Error in saveSnippet:', err);
     if (err instanceof StorageError) {
       throw err;
     }
@@ -111,7 +130,8 @@ export async function saveSnippet(snippet) {
         err
       );
     }
-    throw new StorageError('Failed to save snippet', 'SAVE_FAILED', err);
+    const errorMessage = err.message || 'Unknown error';
+    throw new StorageError(`Failed to save snippet: ${errorMessage}`, 'SAVE_FAILED', err);
   }
 }
 
