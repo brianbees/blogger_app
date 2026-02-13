@@ -44,4 +44,8 @@ def view_post(post_id):
     return "Post not found", 404
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # Only enable debug mode if explicitly set via environment variable
+    # Never use debug=True in production!
+    import os
+    debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+    app.run(debug=debug_mode)

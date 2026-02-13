@@ -24,6 +24,12 @@ A simple blogging application for creating and managing blog posts.
    ```bash
    python app.py
    ```
+   
+   For development with debug mode:
+   ```bash
+   export FLASK_DEBUG=true
+   python app.py
+   ```
 
 3. Access at http://localhost:5000
 
