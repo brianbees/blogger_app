@@ -1,5 +1,8 @@
 """
 Blog Post Model
+
+Note: This model class is currently not used by app.py, which uses dictionaries for simplicity.
+This class is retained as a template for future enhancements when transitioning to a database.
 """
 
 class Post:

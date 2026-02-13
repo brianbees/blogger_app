@@ -39,6 +39,13 @@ Then force push (if needed):
 git push --force-with-lease origin your-branch-name
 ```
 
-## Current Status
-This branch is currently 5 commits ahead of main and 0 commits behind.
-All changes are synchronized.
+## Checking Your Branch Status
+
+To check how many commits ahead or behind your branch is:
+```bash
+git fetch origin main
+echo "Commits ahead: $(git rev-list --count origin/main..HEAD)"
+echo "Commits behind: $(git rev-list --count HEAD..origin/main)"
+```
+
+When the "behind" count is 0, your branch is synchronized with main.

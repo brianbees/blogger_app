@@ -5,9 +5,12 @@ A simple blogging application for creating and managing blog posts.
 ## Features
 
 - Create blog posts
+- View all posts
+- View individual posts
+
+### Planned Features
 - Edit existing posts
 - Delete posts
-- View all posts
 - Comment on posts
 
 ## Setup

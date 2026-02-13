@@ -16,7 +16,7 @@
     <div class="post">
         <div class="post-title">{{ post.title }}</div>
         <div class="post-meta">By {{ post.author }} on {{ post.created_at }}</div>
-        <p>{{ post.content[:200] }}...</p>
+        <p>{{ post.content[:200] }}{% if post.content|length > 200 %}...{% endif %}</p>
         <a href="/post/{{ post.id }}">Read more</a>
     </div>
     {% endfor %}
