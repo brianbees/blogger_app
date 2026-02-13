@@ -111,6 +111,6 @@ export default function SnippetCard({ snippet, onDelete }) {
           {snippet.transcript}
         </p>
       )}
-    </div>
+    </article>
   );
 }
