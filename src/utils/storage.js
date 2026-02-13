@@ -75,14 +75,23 @@ export async function checkStorageQuota() {
 
 /**
  * Save a snippet to IndexedDB
- * Ensures audioBlob is stored as a Blob object
+ * Supports both audio and image snippets
+ * Ensures audioBlob or mediaBlob is stored as a Blob object
  */
 export async function saveSnippet(snippet) {
   try {
     const db = await getDB();
     
-    if (!(snippet.audioBlob instanceof Blob)) {
-      throw new StorageError('audioBlob must be a Blob object', 'INVALID_DATA');
+    // Validate that blob data is present and is a Blob
+    if (snippet.type === 'image') {
+      if (!(snippet.mediaBlob instanceof Blob)) {
+        throw new StorageError('mediaBlob must be a Blob object for image snippets', 'INVALID_DATA');
+      }
+    } else {
+      // Default to audio type for backward compatibility
+      if (!(snippet.audioBlob instanceof Blob)) {
+        throw new StorageError('audioBlob must be a Blob object for audio snippets', 'INVALID_DATA');
+      }
     }
     
     const snippetWithVersion = {
@@ -97,7 +106,7 @@ export async function saveSnippet(snippet) {
     }
     if (err.name === 'QuotaExceededError') {
       throw new StorageError(
-        'Storage quota exceeded. Cannot save recording.',
+        'Storage quota exceeded. Cannot save snippet.',
         'QUOTA_EXCEEDED',
         err
       );
@@ -158,18 +167,29 @@ export async function deleteSnippet(id) {
 /**
  * Export all data to JSON format
  * Converts Blobs to base64 for serialization
+ * Handles both audio and image snippets
  */
 export async function exportAllData() {
   try {
     const snippets = await getAllSnippets();
     const exportData = await Promise.all(
       snippets.map(async (snippet) => {
-        const audioBase64 = await blobToBase64(snippet.audioBlob);
-        return {
-          ...snippet,
-          audioBlob: audioBase64,
-          audioBlobType: snippet.audioBlob.type,
-        };
+        if (snippet.type === 'image' && snippet.mediaBlob) {
+          const mediaBase64 = await blobToBase64(snippet.mediaBlob);
+          return {
+            ...snippet,
+            mediaBlob: mediaBase64,
+            mediaBlobType: snippet.mediaBlob.type,
+          };
+        } else if (snippet.audioBlob) {
+          const audioBase64 = await blobToBase64(snippet.audioBlob);
+          return {
+            ...snippet,
+            audioBlob: audioBase64,
+            audioBlobType: snippet.audioBlob.type,
+          };
+        }
+        return snippet;
       })
     );
     
@@ -190,6 +210,7 @@ export async function exportAllData() {
 /**
  * Import data from exported JSON
  * Converts base64 back to Blobs
+ * Handles both audio and image snippets
  */
 export async function importData(exportedData) {
   try {
@@ -212,13 +233,17 @@ export async function importData(exportedData) {
           continue;
         }
         
-        const audioBlob = base64ToBlob(snippet.audioBlob, snippet.audioBlobType || 'audio/webm');
-        const snippetToImport = {
-          ...snippet,
-          audioBlob,
-          dataVersion: DATA_VERSION,
-        };
-        delete snippetToImport.audioBlobType;
+        const snippetToImport = { ...snippet, dataVersion: DATA_VERSION };
+        
+        if (snippet.type === 'image' && snippet.mediaBlob) {
+          const mediaBlob = base64ToBlob(snippet.mediaBlob, snippet.mediaBlobType || 'image/jpeg');
+          snippetToImport.mediaBlob = mediaBlob;
+          delete snippetToImport.mediaBlobType;
+        } else if (snippet.audioBlob) {
+          const audioBlob = base64ToBlob(snippet.audioBlob, snippet.audioBlobType || 'audio/webm');
+          snippetToImport.audioBlob = audioBlob;
+          delete snippetToImport.audioBlobType;
+        }
         
         await store.put(snippetToImport);
         imported++;

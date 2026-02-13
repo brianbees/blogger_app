@@ -1,4 +1,21 @@
-export default function BottomBar({ onRecordClick, isRecording, isDisabled, isModalOpen }) {
+import { useRef } from 'react';
+
+export default function BottomBar({ onRecordClick, isRecording, isDisabled, isModalOpen, onImageSelect }) {
+  const fileInputRef = useRef(null);
+
+  const handleImageClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      onImageSelect(file);
+    }
+    // Reset input so same file can be selected again
+    e.target.value = '';
+  };
+
   return (
     <nav 
       className={`fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 z-30 transition-opacity duration-200 pb-safe ${
@@ -43,6 +60,7 @@ export default function BottomBar({ onRecordClick, isRecording, isDisabled, isMo
 
         {/* Image Upload */}
         <button
+          onClick={handleImageClick}
           className="flex flex-col items-center text-xs text-gray-600 hover:text-gray-900 active:scale-95 transition min-w-[56px] min-h-[56px] justify-center rounded-lg hover:bg-gray-50"
           aria-label="Upload image"
           disabled={isModalOpen}
@@ -50,6 +68,16 @@ export default function BottomBar({ onRecordClick, isRecording, isDisabled, isMo
           <span className="text-2xl mb-1" aria-hidden="true">🖼️</span>
           <span className="font-medium">Image</span>
         </button>
+        
+        {/* Hidden File Input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/jpg,image/png"
+          onChange={handleFileChange}
+          className="hidden"
+          aria-hidden="true"
+        />
       </div>
     </nav>
   );

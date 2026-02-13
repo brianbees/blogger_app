@@ -4,10 +4,17 @@ import BottomBar from './components/BottomBar';
 import RecordPanel from './components/RecordPanel';
 import DailyFeed from './components/DailyFeed';
 import DataManager from './components/DataManager';
+import ImagePreviewSheet from './components/ImagePreviewSheet';
+import ImageViewer from './components/ImageViewer';
+import Toast from './components/Toast';
 import { useMediaRecorder } from './hooks/useMediaRecorder';
 import { generateId } from './utils/id';
 import { getDayKey } from './utils/dateKey';
 import { saveSnippet, getAllSnippets, deleteSnippet, StorageError } from './utils/storage';
+
+// Image validation constants
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png'];
 
 function App() {
   const [snippets, setSnippets] = useState([]);
@@ -15,6 +22,9 @@ function App() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [storageError, setStorageError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedImageFile, setSelectedImageFile] = useState(null);
+  const [viewerImageUrl, setViewerImageUrl] = useState(null);
+  const [toast, setToast] = useState(null);
   const lastSavedBlobRef = useRef(null);
 
   const {
@@ -37,6 +47,14 @@ function App() {
       handleSaveSnippet();
     }
   }, [audioBlob, isRecording]);
+
+  const showToast = (message, type = 'error') => {
+    setToast({ message, type });
+  };
+
+  const closeToast = () => {
+    setToast(null);
+  };
 
   const loadSnippets = async () => {
     try {
@@ -87,6 +105,74 @@ function App() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleImageSelect = (file) => {
+    // Validate file type
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      showToast('Please select a JPG or PNG image', 'error');
+      return;
+    }
+
+    // Validate file size
+    if (file.size > MAX_IMAGE_SIZE) {
+      showToast('Image is too large. Maximum size is 10MB', 'error');
+      return;
+    }
+
+    setSelectedImageFile(file);
+  };
+
+  const handleImageSave = async (imageFile, caption) => {
+    setIsSaving(true);
+    setStorageError(null);
+
+    try {
+      const now = new Date();
+      const snippet = {
+        id: generateId(),
+        type: 'image',
+        timestamp: now.getTime(),
+        createdAt: now.getTime(),
+        dayKey: getDayKey(now),
+        mediaBlob: imageFile,
+        caption: caption,
+        syncStatus: 'local',
+      };
+
+      await saveSnippet(snippet);
+      
+      await loadSnippets();
+      setRefreshTrigger(prev => prev + 1);
+      setSelectedImageFile(null);
+      showToast('Image saved successfully', 'info');
+    } catch (err) {
+      if (err instanceof StorageError) {
+        setStorageError(err.message);
+        if (err.code === 'QUOTA_EXCEEDED') {
+          showToast('Storage quota exceeded! Please free up space', 'error');
+        } else {
+          showToast('Failed to save image', 'error');
+        }
+      } else {
+        setStorageError('Failed to save image');
+        showToast('Failed to save image', 'error');
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleImageCancel = () => {
+    setSelectedImageFile(null);
+  };
+
+  const handleImageViewerOpen = (imageUrl) => {
+    setViewerImageUrl(imageUrl);
+  };
+
+  const handleImageViewerClose = () => {
+    setViewerImageUrl(null);
   };
 
   const handleRecordClick = () => {
@@ -147,6 +233,7 @@ function App() {
             snippets={snippets} 
             refreshTrigger={refreshTrigger}
             onDeleteSnippet={handleDeleteSnippet}
+            onImageClick={handleImageViewerOpen}
           />
         </div>
       </main>
@@ -156,7 +243,31 @@ function App() {
         isRecording={isRecording}
         isDisabled={!isSupported || isSaving}
         isModalOpen={isModalOpen}
+        onImageSelect={handleImageSelect}
       />
+
+      {selectedImageFile && (
+        <ImagePreviewSheet
+          imageFile={selectedImageFile}
+          onSave={handleImageSave}
+          onCancel={handleImageCancel}
+        />
+      )}
+
+      {viewerImageUrl && (
+        <ImageViewer
+          imageUrl={viewerImageUrl}
+          onClose={handleImageViewerClose}
+        />
+      )}
+
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={closeToast}
+        />
+      )}
     </div>
   );
 }

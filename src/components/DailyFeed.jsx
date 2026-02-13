@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import SnippetCard from './SnippetCard';
 
-export default function DailyFeed({ snippets, refreshTrigger, onDeleteSnippet }) {
+export default function DailyFeed({ snippets, refreshTrigger, onDeleteSnippet, onImageClick }) {
   const [groupedSnippets, setGroupedSnippets] = useState({});
 
   useEffect(() => {
@@ -38,7 +38,12 @@ export default function DailyFeed({ snippets, refreshTrigger, onDeleteSnippet })
           </h2>
           <div>
             {groupedSnippets[dayKey].map((snippet) => (
-              <SnippetCard key={snippet.id} snippet={snippet} onDelete={onDeleteSnippet} />
+              <SnippetCard 
+                key={snippet.id} 
+                snippet={snippet} 
+                onDelete={onDeleteSnippet}
+                onImageClick={onImageClick}
+              />
             ))}
           </div>
         </section>
