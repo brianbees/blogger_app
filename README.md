@@ -2,17 +2,20 @@
 
 A mobile-first Progressive Web App for recording and organizing voice snippets throughout your day.
 
-## Stage 1: Offline-First Core
+## Stage 2: Persistent Storage & Native UI ✅
 
-This is the Stage 1 implementation, focusing on core offline functionality without any Google integrations.
+Fully functional voice recording app with IndexedDB storage, export/import, and polished native Android UI.
 
 ## Features
 
-- 🎤 **Voice Recording**: Record audio snippets using your device microphone
+- 🎤 **Voice Recording**: Record audio snippets using device microphone with live waveform
 - 📅 **Daily Organization**: Snippets automatically grouped by day (Europe/London timezone)
-- 💾 **Offline Storage**: All data stored locally in IndexedDB
-- 📱 **Mobile-First Design**: Optimized for mobile devices with touch-friendly interface
-- 🔄 **PWA Support**: Installable as a standalone app
+- 💾 **IndexedDB Storage**: Persistent storage with version management (v2 schema)
+- 📱 **Native Android UI**: Greeting header, three-button bar, slide-up recording panel
+- ▶️ **Audio Playback**: Custom controls with progress bar and play/pause toggle
+- 💾 **Export/Import**: Backup to JSON with base64-encoded audio
+- 🗑️ **Delete & Clear**: Remove individual recordings or clear all data
+- 📊 **Storage Quota**: Check available space and usage statistics
 - ⚡ **Instant Updates**: Feed refreshes immediately after recording
 
 ## Tech Stack
@@ -75,19 +78,21 @@ npm run preview
 src/
   main.jsx              # App entry point
   App.jsx               # Main app component with state management
-  index.css             # Tailwind directives and global styles
+  index.css             # Tailwind v4 CSS import and global styles
   components/
-    Header.jsx          # Fixed header with app title
-    BottomBar.jsx       # Fixed bottom bar with record button
-    RecordPanel.jsx     # Recording state display
+    Header.jsx          # Greeting header with dynamic date
+    BottomBar.jsx       # Three-button bar with raised FAB
+    RecordPanel.jsx     # Slide-up recording panel with waveform
     DailyFeed.jsx       # Snippet feed grouped by day
-    SnippetCard.jsx     # Individual snippet display with audio player
+    SnippetCard.jsx     # Individual snippet with custom playback controls
+    DataManager.jsx     # Export/import/quota management modal
   hooks/
-    useMediaRecorder.js # MediaRecorder logic and state
+    useMediaRecorder.js # MediaRecorder logic with duration tracking
   utils/
     id.js               # Unique ID generation
     dateKey.js          # Timezone handling (Europe/London)
-    storage.js          # IndexedDB operations
+    storage.js          # IndexedDB v2 operations with error handling
+    storageSelfTest.js  # Runtime verification of storage functionality
 ```
 
 ## Timezone Handling
@@ -98,16 +103,21 @@ src/
 
 Snippets are stored in IndexedDB with the following schema:
 
-- **Database**: `voice-journal`
-- **Store**: `snippets`
+- **Database**: `voice-journal` (version 2)
+- **Store**: `snippets` (keyPath: 'id')
+- **Indexes**: 
+  - `dayKey` (non-unique) - Fast date-based queries
+  - `createdAt` (non-unique) - Chronological sorting
+  - `dataVersion` (non-unique) - Schema version tracking
 - **Fields**:
-  - `id` - Unique identifier
-  - `createdAt` - Unix timestamp
+  - `id` - Unique identifier (format: `snippet-{timestamp}-{random}`)
+  - `createdAt` - Unix timestamp (milliseconds)
   - `dayKey` - Date in `yyyy-MM-dd` format (Europe/London)
-  - `duration` - Recording duration in seconds
-  - `audioBlob` - Audio data as Blob
-  - `transcript` - Optional text transcript (null in Stage 1)
-  - `syncStatus` - Always "local" in Stage 1
+  - `duration` - Recording duration in seconds (captured at stop time)
+  - `audioBlob` - Audio data as Blob (typically audio/webm)
+  - `transcript` - Optional text transcript (null in Stage 2)
+  - `syncStatus` - Always "local" in Stage 2
+  - `dataVersion` - Schema version (1)
 
 ## Browser Support
 
@@ -116,21 +126,35 @@ Requires modern browsers with:
 - IndexedDB
 - Service Workers (for PWA)
 
-## Known Limitations (Stage 1)
+## Stage 2 Completion Status
 
-- No cloud sync or backup
+✅ IndexedDB v2 persistent storage  
+✅ Export to JSON with base64 audio  
+✅ Import from backup with duplicate detection  
+✅ Delete individual recordings  
+✅ Clear all data  
+✅ Storage quota checking  
+✅ Native Android UI polish  
+✅ Audio playback with progress bar  
+✅ Duration capture fix  
+✅ Error handling with custom StorageError class  
+
+## Known Limitations (Stage 2)
+
+- No cloud sync or backup (local export/import only)
 - No transcript generation
-- No edit/delete functionality
+- No text note or image upload features (UI present but not wired)
 - No search or filtering
 - Audio format is browser-dependent (typically WebM)
 
 ## Future Stages
 
-Stage 2+ will add:
+Stage 3 will add:
 - Google Drive backup/sync
 - Speech-to-text transcription
 - Cloud storage integration
 - Multi-device sync
+- Text note and image upload functionality
 
 ## License
 

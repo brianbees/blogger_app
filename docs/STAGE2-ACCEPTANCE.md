@@ -6,15 +6,18 @@
 
 **Steps:**
 1. Open application in browser
-2. Click the microphone button (bottom bar)
-3. Speak for 3-5 seconds
-4. Click the microphone button again to stop
-5. Wait for "Saving..." indicator to complete
+2. Click the blue microphone FAB button (center of bottom bar)
+3. Allow microphone permission when prompted
+4. Speak for 3-5 seconds (watch the timer in slide-up panel)
+5. Click the red "Stop Recording" button
+6. Wait for "Saving..." inline banner to complete
 
 **Expected Result:**
-- Recording appears in DailyFeed under today's date
-- Audio player is visible with playback controls
-- Duration is displayed (e.g., "Duration: 4s")
+- Slide-up recording panel appears with red pulsing dot
+- Timer counts up correctly (0:00, 0:01, 0:02...)
+- Recording appears in DailyFeed under today's date header
+- Custom audio player with blue play button is visible
+- Duration matches recording time (e.g., "5s" for 5-second recording)
 - No error banner appears
 
 ---
@@ -47,15 +50,19 @@ console.log('Snippets for today:', snippets);
 
 **Steps:**
 1. Record at least one snippet
-2. Verify snippet appears in feed with audio player
-3. Close browser completely (not just tab)
-4. Reopen browser and navigate to application URL
-5. Check DailyFeed
+2. Verify snippet appears in feed with custom audio player (blue play button)
+3. Click play button and verify audio plays with progress bar animating
+4. Click again to pause (button changes to pause icon)
+5. Close browser completely (not just tab)
+6. Reopen browser and navigate to application URL
+7. Check DailyFeed
 
 **Expected Result:**
-- All previously recorded snippets are visible
-- Audio players render correctly
-- Clicking play button plays the audio
+- All previously recorded snippets are visible with correct duration
+- Audio players render correctly with blue circular play button
+- Clicking play button plays the audio (button changes to pause icon)
+- Progress bar animates from left to right during playback
+- Button returns to play icon when audio ends
 - No "Failed to load recordings" error
 
 ---
