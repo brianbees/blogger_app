@@ -124,17 +124,23 @@ export default function DataManager({ onDataChange, onModalChange }) {
 
       {/* Modal */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center px-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="data-modal-title"
+        >
           {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
             onClick={closeModal}
+            aria-hidden="true"
           />
 
           {/* Modal Container */}
-          <div className="relative z-50 bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full">
+          <div className="relative z-50 bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full animate-in fade-in zoom-in-95 duration-200">
             {/* Title */}
-            <h2 className="text-xl font-semibold text-gray-900 text-center mb-6">
+            <h2 id="data-modal-title" className="text-xl font-semibold text-gray-900 text-center mb-6">
               Data Management
             </h2>
 
@@ -187,11 +193,15 @@ export default function DataManager({ onDataChange, onModalChange }) {
 
             {/* Status Message */}
             {status && (
-              <div className={`p-3 rounded-xl text-sm font-medium mb-4 ${
-                status.includes('failed')
-                  ? 'bg-red-50 text-red-800 border border-red-200'
-                  : 'bg-green-50 text-green-800 border border-green-200'
-              }`}>
+              <div 
+                className={`p-3 rounded-xl text-sm font-medium mb-4 ${
+                  status.includes('failed')
+                    ? 'bg-red-50 text-red-800 border border-red-200'
+                    : 'bg-green-50 text-green-800 border border-green-200'
+                }`}
+                role="status"
+                aria-live="polite"
+              >
                 {status}
               </div>
             )}
@@ -221,7 +231,8 @@ export default function DataManager({ onDataChange, onModalChange }) {
             {/* Close Button */}
             <button
               onClick={closeModal}
-              className="w-full py-2 px-4 rounded-xl font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 active:scale-95 transition"
+              className="w-full py-3 px-4 rounded-xl font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 active:scale-[0.98] transition min-h-[48px]"
+              aria-label="Close data management dialog"
             >
               Close
             </button>

@@ -21,19 +21,19 @@ export default function DailyFeed({ snippets, refreshTrigger, onDeleteSnippet })
 
   if (dayKeys.length === 0) {
     return (
-      <div className="text-center py-20 px-4">
-        <div className="mb-4 text-4xl">🎙️</div>
-        <p className="text-base text-gray-900 font-medium mb-2">No recordings yet</p>
-        <p className="text-sm text-gray-500">Tap the microphone below to start</p>
+      <div className="text-center py-20 px-4" role="status" aria-live="polite">
+        <div className="mb-4 text-5xl" aria-hidden="true">🎙️</div>
+        <p className="text-base text-gray-900 font-semibold mb-2">No recordings yet</p>
+        <p className="text-sm text-gray-600">Tap the microphone below to start</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" role="feed" aria-label="Voice recordings feed">
       {dayKeys.map((dayKey) => (
-        <div key={dayKey}>
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-1">
+        <section key={dayKey} aria-labelledby={`date-${dayKey}`}>
+          <h2 id={`date-${dayKey}`} className="text-xs font-bold text-gray-600 uppercase tracking-wider mb-3 px-1">
             {dayKey}
           </h2>
           <div>
@@ -41,7 +41,7 @@ export default function DailyFeed({ snippets, refreshTrigger, onDeleteSnippet })
               <SnippetCard key={snippet.id} snippet={snippet} onDelete={onDeleteSnippet} />
             ))}
           </div>
-        </div>
+        </section>
       ))}
     </div>
   );

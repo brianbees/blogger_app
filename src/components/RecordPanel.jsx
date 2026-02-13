@@ -33,23 +33,24 @@ export default function RecordPanel({ isRecording, timer, isSaving, error, isSup
 
   if (isRecording) {
     return (
-      <div className="fixed inset-x-0 bottom-20 px-4 pb-3 z-20">
-        <div className="rounded-2xl bg-white shadow-lg p-4 border border-red-100 max-w-md mx-auto">
-          <div className="flex items-center justify-between mb-3">
+      <div className="fixed inset-x-0 bottom-20 px-4 pb-safe z-20" role="dialog" aria-live="polite" aria-label="Recording in progress">
+        <div className="rounded-2xl bg-white shadow-xl p-5 border border-red-100 max-w-md mx-auto">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <div className="h-3 w-3 rounded-full bg-red-500 animate-pulse"></div>
-              <span className="text-xs font-medium text-red-500 uppercase tracking-wide">Recording</span>
+              <div className="h-3 w-3 rounded-full bg-red-500 animate-pulse" aria-hidden="true"></div>
+              <span className="text-sm font-bold text-red-600 uppercase tracking-wide">Recording</span>
             </div>
-            <span className="text-lg font-bold text-gray-900">
+            <span className="text-2xl font-bold text-gray-900 tabular-nums" aria-label={`Recording time: ${Math.floor(timer / 60)} minutes ${timer % 60} seconds`}>
               {Math.floor(timer / 60)}:{(timer % 60).toString().padStart(2, '0')}
             </span>
           </div>
-          <div className="h-2 bg-red-100 rounded-full mb-3 overflow-hidden">
+          <div className="h-2 bg-red-100 rounded-full mb-5 overflow-hidden" role="progressbar" aria-label="Recording waveform">
             <div className="h-full bg-red-500 rounded-full animate-pulse" style={{ width: '60%' }}></div>
           </div>
           <button
             onClick={onStopRecording}
-            className="w-full rounded-full bg-red-600 hover:bg-red-700 text-white py-2 text-sm font-medium active:scale-95 transition"
+            className="w-full rounded-full bg-red-600 hover:bg-red-700 text-white py-3.5 text-base font-semibold active:scale-[0.98] transition-all shadow-lg min-h-[48px]"
+            aria-label="Stop recording"
           >
             Stop Recording
           </button>

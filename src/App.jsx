@@ -117,14 +117,18 @@ function App() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50" style={{ minHeight: '100dvh' }}>
+    <div className="flex flex-col h-screen bg-gray-50" style={{ minHeight: '100dvh' }} role="application">
       <Header />
       <DataManager onDataChange={handleDataChange} onModalChange={setIsModalOpen} />
       
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto" role="main">
         <div className="max-w-4xl mx-auto px-4 pt-6 pb-32">
           {storageError && (
-            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
+            <div 
+              className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-800 shadow-sm"
+              role="alert"
+              aria-live="assertive"
+            >
               <p className="font-semibold">Storage Error</p>
               <p className="text-sm">{storageError}</p>
             </div>
