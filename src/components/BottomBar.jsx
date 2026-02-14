@@ -25,16 +25,6 @@ export default function BottomBar({ onRecordClick, isRecording, isDisabled, isMo
       aria-label="Primary actions"
     >
       <div className="max-w-4xl mx-auto px-4 py-3 flex justify-around items-center">
-        {/* Text Note */}
-        <button
-          className="flex flex-col items-center text-xs text-gray-600 hover:text-gray-900 active:scale-95 transition min-w-[56px] min-h-[56px] justify-center rounded-lg hover:bg-gray-50"
-          aria-label="Create text note"
-          disabled={isModalOpen}
-        >
-          <span className="text-2xl mb-1" aria-hidden="true">📝</span>
-          <span className="font-medium">Note</span>
-        </button>
-
         {/* Record FAB (Center) */}
         <button
           onClick={onRecordClick}

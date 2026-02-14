@@ -60,20 +60,38 @@ export function useMediaRecorder() {
 
   const startRecording = async () => {
     try {
-      // Request microphone permission
-      const stream = await navigator.mediaDevices.getUserMedia({ 
+      // Get selected microphone from localStorage (if any)
+      const selectedMicId = localStorage.getItem('selectedMicrophoneId');
+      
+      // Request microphone permission with high-quality settings
+      const constraints = { 
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 48000, // High quality sample rate
+          channelCount: 1, // Mono (saves space, fine for voice)
         } 
-      });
+      };
+      
+      // Use specific device if selected
+      if (selectedMicId && selectedMicId !== 'default') {
+        constraints.audio.deviceId = { exact: selectedMicId };
+      }
+      
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = stream;
 
-      // Create MediaRecorder with supported MIME type
+      // Create MediaRecorder with supported MIME type and high bitrate
       let mediaRecorder;
+      const options = {
+        audioBitsPerSecond: 128000, // 128 kbps - good quality
+      };
+      
       if (mimeTypeRef.current) {
         try {
-          mediaRecorder = new MediaRecorder(stream, { mimeType: mimeTypeRef.current });
+          options.mimeType = mimeTypeRef.current;
+          mediaRecorder = new MediaRecorder(stream, options);
         } catch (e) {
           mediaRecorder = new MediaRecorder(stream);
         }
