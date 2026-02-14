@@ -33,6 +33,7 @@ function App() {
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [publishSnippet, setPublishSnippet] = useState(null);
   const [selectedBlogId, setSelectedBlogId] = useState(null);
+  const [selectedBlogUrl, setSelectedBlogUrl] = useState(null);
   const [isMicSelectorOpen, setIsMicSelectorOpen] = useState(false);
   const lastSavedBlobRef = useRef(null);
 
@@ -49,10 +50,14 @@ function App() {
 
   useEffect(() => {
     loadSnippets();
-    // Load saved blog ID from localStorage
+    // Load saved blog ID and URL from localStorage
     const savedBlogId = localStorage.getItem('selectedBlogId');
+    const savedBlogUrl = localStorage.getItem('selectedBlogUrl');
     if (savedBlogId) {
       setSelectedBlogId(savedBlogId);
+    }
+    if (savedBlogUrl) {
+      setSelectedBlogUrl(savedBlogUrl);
     }
     
     // Initialize Google services and check auth state
@@ -236,20 +241,76 @@ function App() {
     }
   };
 
-  const handleTranscriptUpdate = async (id, transcript) => {
+  const handleAttachImage = async (snippetId, file) => {
     try {
+      // Find the snippet
+      const snippet = snippets.find(s => s.id === snippetId);
+      if (!snippet) {
+        showToast('Snippet not found', 'error');
+        return;
+      }
+
+      if (file) {
+        // Add/replace image
+        const updatedSnippet = {
+          ...snippet,
+          mediaBlob: file,
+          caption: snippet.caption || null,
+        };
+        await saveSnippet(updatedSnippet);
+        showToast('Image attached!', 'info');
+      } else {
+        // Remove image
+        const updatedSnippet = { ...snippet };
+        delete updatedSnippet.mediaBlob;
+        delete updatedSnippet.caption;
+        await saveSnippet(updatedSnippet);
+        showToast('Image removed', 'info');
+      }
+
+      // Reload snippets
+      await loadSnippets();
+      setRefreshTrigger(prev => prev + 1);
+    } catch (err) {
+      console.error('Failed to attach image:', err);
+      showToast('Failed to attach image', 'error');
+    }
+  };
+
+  const handleTranscriptUpdate = async (id, transcript) => {
+    console.log('[App] handleTranscriptUpdate called:', {
+      snippetId: id,
+      transcriptLength: transcript?.length || 0,
+      transcriptPreview: transcript?.substring(0, 50)
+    });
+
+    try {
+      // Find the snippet BEFORE updating state
+      const snippet = snippets.find(s => s.id === id);
+      if (!snippet) {
+        console.error('[App] Snippet not found:', id);
+        return;
+      }
+
+      // Create updated snippet with transcript
+      const updatedSnippet = { ...snippet, transcript };
+      
+      // Save to storage FIRST
+      console.log('[App] Saving updated snippet to storage:', {
+        id: updatedSnippet.id,
+        hasTranscript: !!updatedSnippet.transcript,
+        transcriptPreview: updatedSnippet.transcript?.substring(0, 50)
+      });
+      await saveSnippet(updatedSnippet);
+      console.log('[App] Snippet saved successfully to storage');
+      
+      // Then update state
       const updatedSnippets = snippets.map(s => 
-        s.id === id ? { ...s, transcript } : s
+        s.id === id ? updatedSnippet : s
       );
       setSnippets(updatedSnippets);
+      console.log('[App] State updated with transcript');
       
-      // Also update in storage
-      const snippet = snippets.find(s => s.id === id);
-      if (snippet) {
-        await saveSnippet({ ...snippet, transcript });
-      }
-      
-      // Removed toast notification - visual feedback is in the card itself
     } catch (err) {
       console.error('Failed to save transcript:', err);
       showToast('Failed to save transcription', 'error');
@@ -264,8 +325,12 @@ function App() {
     setIsCloudSyncOpen(false);
     // Reload blog selection when modal closes
     const savedBlogId = localStorage.getItem('selectedBlogId');
+    const savedBlogUrl = localStorage.getItem('selectedBlogUrl');
     if (savedBlogId) {
       setSelectedBlogId(savedBlogId);
+    }
+    if (savedBlogUrl) {
+      setSelectedBlogUrl(savedBlogUrl);
     }
   };
 
@@ -274,15 +339,28 @@ function App() {
     if (signedIn) {
       // Reload blog ID after sign-in
       const savedBlogId = localStorage.getItem('selectedBlogId');
+      const savedBlogUrl = localStorage.getItem('selectedBlogUrl');
       if (savedBlogId) {
         setSelectedBlogId(savedBlogId);
       }
+      if (savedBlogUrl) {
+        setSelectedBlogUrl(savedBlogUrl);
+      }
     } else {
       setSelectedBlogId(null);
+      setSelectedBlogUrl(null);
     }
   };
 
   const handlePublishClick = (snippet) => {
+    console.log('[App] handlePublishClick called with snippet:', {
+      id: snippet.id,
+      type: snippet.type,
+      hasTranscript: !!snippet.transcript,
+      transcriptLength: snippet.transcript?.length || 0,
+      transcriptPreview: snippet.transcript?.substring(0, 50)
+    });
+
     if (!isSignedIn) {
       showToast('Please sign in to Google to publish', 'error');
       setIsCloudSyncOpen(true);
@@ -297,7 +375,8 @@ function App() {
   };
 
   const handlePublishSuccess = (result) => {
-    showToast(`Published successfully! View at ${result.url}`, 'info');
+    // Silently close modal - no toast notification
+    console.log('[App] Published successfully:', result.url);
     setPublishSnippet(null);
   };
 
@@ -320,7 +399,7 @@ function App() {
 
   return (
     <div className="flex flex-col h-screen bg-gray-50" style={{ minHeight: '100dvh' }} role="application">
-      <Header onCloudSyncClick={handleCloudSyncOpen} isSignedIn={isSignedIn} />
+      <Header onCloudSyncClick={handleCloudSyncOpen} isSignedIn={isSignedIn} blogUrl={selectedBlogUrl} />
       <DataManager onDataChange={handleDataChange} onModalChange={setIsModalOpen} />
       
       <main className="flex-1 overflow-y-auto" role="main">
@@ -352,6 +431,7 @@ function App() {
             onImageClick={handleImageViewerOpen}
             onPublishClick={handlePublishClick}
             onTranscriptUpdate={handleTranscriptUpdate}
+            onAttachImage={handleAttachImage}
             isSignedIn={isSignedIn}
           />
         </div>

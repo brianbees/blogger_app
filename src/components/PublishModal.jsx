@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { publishPost } from '../services/bloggerService';
 import { uploadImage } from '../services/driveService';
 import { transcribeAudio } from '../services/speechToTextService';
+import { compressImage } from '../utils/imageCompression';
 
 /**
  * PublishModal Component
@@ -33,15 +34,27 @@ function PublishModal({ isOpen, onClose, snippet, blogId, onSuccess }) {
       let transcript = snippet.transcript || '';
       let imageUrl = null;
 
+      console.log('[PublishModal] Starting publish for snippet:', {
+        id: snippet.id,
+        type: snippet.type,
+        hasTranscript: !!transcript,
+        transcriptLength: transcript?.length || 0,
+        transcriptPreview: transcript?.substring(0, 50)
+      });
+
       // Step 1: Transcribe audio if needed
-      if (snippet.type === 'audio' && snippet.audioBlob && !transcript) {
+      if (snippet.audioBlob && !transcript) {
+        console.log('[PublishModal] No transcript found, transcribing now...');
         setProgress({ step: 'Transcribing audio...', percent: 20 });
         const result = await transcribeAudio(snippet.audioBlob);
         transcript = result.transcript;
+        console.log('[PublishModal] Transcription result:', transcript.substring(0, 100));
+      } else if (snippet.audioBlob && transcript) {
+        console.log('[PublishModal] Using existing transcript from snippet');
       }
 
-      // Step 2: Upload image to Drive if present
-      if (snippet.type === 'image' && snippet.mediaBlob) {
+      // Step 2: Upload image to Drive if present (works for both image snippets and audio with attached image)
+      if (snippet.mediaBlob) {
         setProgress({ step: 'Compressing image...', percent: 40 });
         const compressedBlob = await compressImage(snippet.mediaBlob, 1920, 1920, 0.85);
         
@@ -49,12 +62,19 @@ function PublishModal({ isOpen, onClose, snippet, blogId, onSuccess }) {
         const fileName = `journal-image-${snippet.id}.jpg`;
         const uploadResult = await uploadImage(compressedBlob, fileName, snippet.caption || '');
         imageUrl = uploadResult.directLink || uploadResult.webContentLink || uploadResult.webViewLink;
+        
+        console.log('[PublishModal] Image uploaded, using URL:', imageUrl);
       }
 
       // Step 3: Publish to Blogger
       setProgress({ step: 'Publishing to Blogger...', percent: 80 });
       const labelsArray = labels.split(',').map(l => l.trim()).filter(l => l.length > 0);
       
+      console.log('[PublishModal] Publishing to Blogger with transcript:', {
+        transcriptLength: transcript?.length || 0,
+        hasImageUrl: !!imageUrl
+      });
+
       const result = await publishPost(
         blogId,
         snippet,
@@ -67,15 +87,16 @@ function PublishModal({ isOpen, onClose, snippet, blogId, onSuccess }) {
         }
       );
 
+      console.log('[PublishModal] Publish result:', result);
+
       setProgress({ step: 'Complete!', percent: 100 });
 
       if (onSuccess) {
         onSuccess(result);
       }
 
-      setTimeout(() => {
-        onClose();
-      }, 1000);
+      // Close immediately - no delay
+      onClose();
     } catch (err) {
       console.error('Publish error:', err);
       setError(err.message || 'Failed to publish');

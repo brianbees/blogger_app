@@ -28,7 +28,7 @@ export default defineConfig({
         description: 'Record and organize voice snippets with cloud sync',
         theme_color: '#3b82f6',
         background_color: '#ffffff',
-        display: 'standalone',
+        display: 'fullscreen',
         orientation: 'portrait',
         start_url: '/blogger/',
         scope: '/blogger/',

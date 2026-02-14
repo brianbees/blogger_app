@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import SnippetCard from './SnippetCard';
 
-export default function DailyFeed({ snippets, refreshTrigger, onDeleteSnippet, onImageClick, onPublishClick, onTranscriptUpdate, isSignedIn }) {
+export default function DailyFeed({ snippets, refreshTrigger, onDeleteSnippet, onImageClick, onPublishClick, onTranscriptUpdate, onAttachImage, isSignedIn }) {
   const [groupedSnippets, setGroupedSnippets] = useState({});
 
   useEffect(() => {
@@ -45,6 +45,7 @@ export default function DailyFeed({ snippets, refreshTrigger, onDeleteSnippet, o
                 onImageClick={onImageClick}
                 onPublishClick={onPublishClick}
                 onTranscriptUpdate={onTranscriptUpdate}
+                onAttachImage={onAttachImage}
                 isSignedIn={isSignedIn}
               />
             ))}

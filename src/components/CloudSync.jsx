@@ -60,6 +60,7 @@ function CloudSync({ isOpen, onClose, onSignInChange }) {
       if (userBlogs.length > 0 && !selectedBlogId) {
         setSelectedBlogId(userBlogs[0].id);
         localStorage.setItem('selectedBlogId', userBlogs[0].id);
+        localStorage.setItem('selectedBlogUrl', userBlogs[0].url);
       }
     } catch (err) {
       setError('Failed to load user data');
@@ -93,6 +94,7 @@ function CloudSync({ isOpen, onClose, onSignInChange }) {
     setSelectedBlogId(null);
     setStorageInfo(null);
     localStorage.removeItem('selectedBlogId');
+    localStorage.removeItem('selectedBlogUrl');
     
     if (onSignInChange) {
       onSignInChange(false);
@@ -102,6 +104,11 @@ function CloudSync({ isOpen, onClose, onSignInChange }) {
   const handleBlogSelect = (blogId) => {
     setSelectedBlogId(blogId);
     localStorage.setItem('selectedBlogId', blogId);
+    // Also store blog URL
+    const selectedBlog = blogs.find(b => b.id === blogId);
+    if (selectedBlog) {
+      localStorage.setItem('selectedBlogUrl', selectedBlog.url);
+    }
   };
 
   const formatBytes = (bytes) => {

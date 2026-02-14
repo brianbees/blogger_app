@@ -127,8 +127,14 @@ export async function uploadImage(imageBlob, fileName, description = '') {
     // Make file publicly readable so it can be embedded in blog
     await makeFilePublic(data.id);
     
-    // Get direct link for embedding
-    const directLink = `https://drive.google.com/uc?export=view&id=${data.id}`;
+    // Use Google User Content URL which is more reliable for embedding
+    // This format directly serves the image content without redirect issues
+    const directLink = `https://lh3.googleusercontent.com/d/${data.id}`;
+    
+    console.log('[driveService] Image uploaded successfully:', {
+      fileId: data.id,
+      directLink: directLink
+    });
     
     return {
       id: data.id,
