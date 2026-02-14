@@ -17,6 +17,13 @@ dist-ssr
 .env.local
 .env.*.local
 
+# Production builds and archives (may contain bundled credentials)
+*.zip
+*.tar
+*.tar.gz
+dist/
+build/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
