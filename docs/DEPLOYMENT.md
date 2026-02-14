@@ -233,29 +233,62 @@ npm run preview
 
 ### Option 1: cPanel Hosting
 
-1. **Build the app**:
+**Quick Reference:** When someone asks for "the zip file for cPanel", they mean the production build archive containing all compiled files ready to upload to a web hosting service.
+
+#### Step-by-Step Process
+
+1. **Build the production version**:
    ```bash
    npm run build
    ```
+   - This compiles and optimizes all code into the `dist/` folder
+   - Output includes: HTML, CSS, JavaScript bundles, service workers, and assets
+   - Files are minified and production-ready
 
-2. **Compress dist folder** (optional, for easier upload):
+2. **Create deployment archive**:
    ```bash
-   # PowerShell
-   Compress-Archive -Path "dist\*" -DestinationPath "voice-journal.zip"
+   # PowerShell (Windows)
+   Compress-Archive -Path dist\* -DestinationPath blogger_app_production.zip -Force
    
    # Bash/Linux/Mac
-   cd dist && zip -r ../voice-journal.zip *
+   cd dist && zip -r ../blogger_app_production.zip * && cd ..
    ```
+   - Creates `blogger_app_production.zip` containing all `dist/` folder contents
+   - This is the file commonly referred to as "the cPanel zip"
+   - Typically 100-110 KB in size
 
 3. **Upload to cPanel**:
-   - Log into cPanel File Manager
-   - Navigate to `public_html/blogger/` (or your target folder)
-   - Upload all files from `dist/` folder (or upload ZIP and extract)
-   - Ensure file permissions are correct (644 for files, 755 for folders)
+   - Log into your cPanel File Manager
+   - Navigate to `public_html/blogger/` (or your desired subfolder)
+   - **Option A - Extract on server:**
+     - Upload `blogger_app_production.zip`
+     - Right-click → Extract
+     - Delete the ZIP file after extraction
+   - **Option B - Upload files directly:**
+     - Upload all files from `dist/` folder individually
+   - Set permissions: Files `644`, Folders `755`
 
 4. **Verify deployment**:
-   - Open `https://yourdomain.com/blogger/` in browser
-   - Check that all assets load (no 404 errors in Console)
+   - Visit `https://yourdomain.com/blogger/`
+   - Open Browser DevTools (F12) → Console tab
+   - Check for errors (should see no 404s or red messages)
+   - Test recording and features
+
+#### Important Notes
+
+- **Always use `blogger_app_production.zip`** - not `blogger_app_complete.zip` (which contains source code)
+- **Clear browser cache** after deploying updates (Ctrl+Shift+Delete or Ctrl+F5)
+- **Service Worker:** May need 24 hours to fully update across all devices
+- **Base path:** Configured as `/blogger/` in `vite.config.js` - change if deploying to different folder
+
+#### Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| Blank page | Check Console for 404 errors; verify base path matches folder name |
+| Old version showing | Clear browser cache, unregister service worker in DevTools |
+| Assets not loading | Check file permissions (644) and folder permissions (755) |
+| HTTPS issues | Ensure SSL certificate is active on domain |
 
 ### Option 2: Static Hosting (Netlify, Vercel, etc.)
 
