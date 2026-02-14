@@ -1,55 +1,70 @@
 # 🎙️ Voice Journal PWA
 
-A mobile-first Progressive Web App for recording and organizing voice snippets and images throughout your day.
+A mobile-first Progressive Web App for recording and organizing voice snippets and images throughout your day. Includes Google Cloud integration for automatic transcription and one-click publishing to Blogger.
 
-## Stage 2: Persistent Storage & Native UI ✅
+## ✅ Completed Stages
 
-Fully functional voice recording app with IndexedDB storage, export/import, and polished native Android UI.
-
-## Stage 2.5: Image Notes ✅
-
-Local-first image capture with preview, captions, and full-screen viewer with zoom/pan.
-
-## Stage 3: Cloud Integrations ✅
-
-Client-side Google API integrations for publishing, backup, and transcription - no backend required!
+- **Stage 1**: Core voice recording with MediaRecorder API
+- **Stage 2**: IndexedDB storage, export/import, native Android UI polish
+- **Stage 2.5**: Image notes with preview, captions, and full-screen viewer
+- **Stage 3**: Google Cloud integrations (OAuth, Speech-to-Text, Drive, Blogger API)
 
 ## Features
 
-- 🎤 **Voice Recording**: Record audio snippets using device microphone with live waveform
-- 🖼️ **Image Notes**: Upload JPG/PNG images with optional captions (max 10MB)
-- 📸 **Image Preview**: Slide-up sheet with rounded preview and caption input
-- 🔍 **Full-Screen Viewer**: Double-tap to zoom, pinch/pan when zoomed, swipe-down dismiss
+### Core Functionality
+- 🎤 **Voice Recording**: Record audio snippets using device microphone
+- 🖼️ **Image Notes**: Upload JPG/PNG images with optional captions
 - 📅 **Daily Organization**: Snippets automatically grouped by day (Europe/London timezone)
-- 💾 **IndexedDB Storage**: Persistent storage with version management (v3 schema)
-- 📱 **Native Android UI**: Greeting header, three-button bar, slide-up panels
-- ▶️ **Audio Playback**: Custom controls with progress bar and play/pause toggle
-- 💾 **Export/Import**: Backup to JSON with base64-encoded audio/images
-- 🗑️ **Delete & Clear**: Remove individual recordings/images or clear all data
-- 📊 **Storage Quota**: Check available space and usage statistics
+- 💾 **Local Storage**: Persistent IndexedDB storage (v3 schema)
+- 📱 **PWA**: Install as standalone app on mobile devices
 - ⚡ **Instant Updates**: Feed refreshes immediately after recording/upload
+
+### UI/UX
+- 🎨 **Native Android UI**: Polished mobile interface with greeting header
+- ▶️ **Audio Playback**: Custom controls with progress bar
+- 📸 **Image Preview**: Slide-up sheet with caption input
+- 🔍 **Full-Screen Viewer**: Double-tap zoom, pinch/pan, swipe-down dismiss
 - 🔔 **Toast Notifications**: Non-blocking error and info messages
-- ☁️ **Google Sign-In**: OAuth2 authentication for cloud services
-- 📝 **Blogger Publishing**: Publish voice notes and images as blog posts
-- 🎙️ **Speech-to-Text**: Transcribe audio recordings to text (Google Cloud Speech-to-Text)
-- 💿 **Google Drive Backup**: Upload images and backup data to Google Drive
-- 🔐 **Client-Side Only**: All cloud APIs called directly from browser - no backend required
+
+### Data Management  
+- 💾 **Export/Import**: Backup to JSON with base64-encoded media
+- 🗑️ **Delete**: Remove individual items or clear all data
+- 📊 **Storage Quota**: Check available space and usage
+
+### Cloud Integration (Stage 3)
+- ☁️ **Google Sign-In**: OAuth2 authentication (client-side only)
+- 🎙️ **Auto-Transcribe**: Audio automatically transcribed via Google Speech-to-Text
+- 📝 **One-Click Publish**: Publish to Blogger with single tap
+- 💿 **Google Drive**: Automatic image upload and backup storage
+- 🔐 **No Backend**: All cloud APIs called directly from browser
 
 ## Tech Stack
 
-- **Vite** - Fast build tool and dev server
-- **React** - UI framework
-- **Tailwind CSS** - Utility-first styling
-- **vite-plugin-pwa** - Progressive Web App support
-- **idb** - IndexedDB wrapper for storage
+### Frontend
+- **Vite 7.3** - Fast build tool and dev server with HMR
+- **React 19.2** - UI framework with hooks
+- **Tailwind CSS v4** - Utility-first styling
+- **vite-plugin-pwa** - Progressive Web App capabilities
+- **idb 8.0** - IndexedDB wrapper for storage
 - **date-fns-tz** - Timezone handling (Europe/London)
-- **MediaRecorder API** - Browser audio recording
 
-- **Google Cloud Project** (for Stage 3 cloud features):
-  - Google Cloud Console account
-  - OAuth 2.0 Client ID
-  - API Key
-  - Enabled APIs: Blogger, Google Drive, Cloud Speech-to-Text
+### Browser APIs
+- **MediaRecorder API** - Native audio recording
+- **IndexedDB** - Persistent client-side storage
+- **Service Workers** - Offline support and caching
+
+### Google Cloud APIs (Stage 3)
+- **Google Identity Services** - OAuth 2.0 authentication
+- **Blogger API v3** - Blog post publishing
+- **Google Drive API v3** - File upload and backup
+- **Cloud Speech-to-Text API v1** - Audio transcription
+
+### Requirements
+- **Google Cloud Project** with:
+  - OAuth 2.0 Client ID (Web application)
+  - API Key with domain restrictions
+  - Enabled APIs: Blogger, Drive, Speech-to-Text
+  - Test users added to OAuth consent screen
 ## Prerequisites
 
 - Node.js 20+
@@ -58,7 +73,16 @@ Client-side Google API integrations for publishing, backup, and transcription - 
 
 ## Installation
 
-1. 
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/brianbees/blogger_app.git
+   cd blogger_app
+   ```
+
+2. **Install dependencies**:
+   ```bash
+   npm install
+   ```
 
 3. **Configure Google Cloud (for Stage 3 features)**:
 
@@ -123,14 +147,34 @@ npm run preview
 7. **Zoom**: Double-tap to zoom in/out, drag to pan when zoomed
 
 ### Cloud Publishing (Stage 3)
-1. **Sign In**: Tap the cloud icon in the header and sign in with Google
-2. **Select Blog**: Choose a Blogger blog from your account
-3. **Publish**: Tap the 📝 button on any snippet to publish to Blogger
-4. **Options**: Customize title, labels, and choose draft/publish
-5. **Automatic Features**:
-   - Audio recordings are automatically transcribed
-   - Images are uploaded to Google Drive
-   - Blog post includes transcript, images, and timestamp
+
+**One-Time Setup**:
+1. **Sign In**: Tap the cloud icon (☁️) in the header to open Cloud Sync
+2. **Authenticate**: Sign in with your Google account
+3. **Select Blog**: Choose a Blogger blog from your account (dropdown)
+4. **Done**: Cloud icon turns green (✓) when signed in
+
+**Publishing Workflow**:
+1. **Record Audio**: Tap microphone to record, tap again to stop
+2. **Auto-Transcribe**: Audio is automatically transcribed in background (shows ⏳)
+3. **Publish**: When ready, tap 📝 button to publish to Blogger
+4. **Progress**: Brief publishing modal shows:
+   - Transcribing audio (if needed)
+   - Compressing image (for image notes)
+   - Uploading to Drive
+   - Publishing to Blogger
+5. **Success**: Modal auto-closes, toast shows "Published successfully!" with link
+
+**What Gets Published**:
+- **Audio snippets**: Formatted post with timestamp, transcript, and duration
+- **Image snippets**: Post with compressed image (hosted on Drive), caption, and timestamp
+- **Automatic features**:
+  - Images compressed to 1920x1920px before upload
+  - Files uploaded to "Voice Journal Backups" folder in Drive
+  - Posts tagged with "voice-journal" label
+  - Transcript included in post body (hidden from card view)
+
+**Note**: The transcript is not displayed in the app after transcription - it's used directly for publishing.
 
 ### Backup to Google Drive
 1. **Sign In**: Complete Google sign-in through Cloud Sync
@@ -142,33 +186,34 @@ npm run preview
 
 ```
 src/
-  main.jsx              # App entry point
-  App.jsx               # Main app component with state management
+  main.jsx              # App entry point with React 19
+  App.jsx               # Main app with state management and cloud integration
   index.css             # Tailwind v4 CSS import and global styles
   components/
-    Header.jsx          # Greeting header with dynamic date and cloud sync button
-    BottomBar.jsx       # Three-button bar with raised FAB and image picker
-    RecordPanel.jsx     # Slide-up recording panel with waveform
+    Header.jsx          # Greeting header with cloud sync button (green when signed in)
+    BottomBar.jsx       # Record and image upload buttons (mic removed)
+    RecordPanel.jsx     # Slide-up recording panel
     ImagePreviewSheet.jsx # Image preview with caption input
     ImageViewer.jsx     # Full-screen image viewer with zoom/pan
     Toast.jsx           # Non-blocking toast notifications
     DailyFeed.jsx       # Snippet feed grouped by day
-    SnippetCard.jsx     # Audio and image snippet cards with publish button
+    SnippetCard.jsx     # Audio/image cards with auto-transcribe and publish
     DataManager.jsx     # Export/import/quota management modal
-    CloudSync.jsx       # Google sign-in and cloud settings modal
-    PublishModal.jsx    # Blogger publishing interface
+    CloudSync.jsx       # Google sign-in and blog selection
+    PublishModal.jsx    # Publishing progress and options
   hooks/
-    useMediaRecorder.js # MediaRecorder logic with duration tracking
+    useMediaRecorder.js # MediaRecorder with duration tracking
   services/
     googleAuth.js       # OAuth2 client-side authentication
     bloggerService.js   # Blogger API v3 integration
-    driveService.js     # Google Drive API v3 for backup/images
+    driveService.js     # Google Drive API v3 for uploads
     speechToTextService.js # Cloud Speech-to-Text transcription
   utils/
     id.js               # Unique ID generation
     dateKey.js          # Timezone handling (Europe/London)
-    storage.js          # IndexedDB v3 operations with audio/image support
-    storageSelfTest.js  # Runtime verification of storage functionality
+    storage.js          # IndexedDB v3 operations
+    storageSelfTest.js  # Storage verification
+    imageCompression.js # Image resize/compression before upload
 ```
 
 ## Timezone Handling
@@ -214,41 +259,48 @@ Requires modern browsers with:
 - IndexedDB
 - Service Workers (for PWA)
 
-## Stage 2 Completion Status
+## Production Deployment
 
-✅ Audio format is browser-dependent (typically WebM)
-- Image max size 10MB (JPG/PNG only)
-- Speech-to-Text requires Google Cloud billing (free tier available)
+The app is configured for subfolder deployment (e.g., `https://yourdomain.com/blogger/`):
+
+1. **Build**: `npm run build` (outputs to `dist/` folder)
+2. **Configure Base Path**: Edit `vite.config.js` and set `base: '/your-subfolder/'`
+3. **Upload**: Upload all files from `dist/` to your hosting
+4. **Google Cloud Setup**:
+   - Add production domain to OAuth authorized origins
+   - Add production domain to API Key restrictions
+   - Test user must be added to OAuth consent screen during "Testing" phase
+
+**PWA Installation (Mobile)**:
+1. Open the app in Chrome/Safari on your phone
+2. Tap browser menu → "Add to Home screen" or "Install app"
+3. App installs as standalone full-screen app with icon
+4. Works offline - can record audio/images without internet
+5. Online features (publish, transcribe) require internet connection
+
+## Current Limitations
+
+- Audio format is browser-dependent (typically WebM)
+- Images compressed to 1920x1920px before upload
+- Speech-to-Text requires Google Cloud billing (free tier: 60 min/month)
 - Blogger publishing requires existing Blogger account and blog
-✅ Native Android UI polish  
-✅ Audio playback with progress bar  
-✅ Duration capture fix  
-✅ Error haEnhancements
+- Auto-transcription starts immediately after recording (no manual control)
+- Text note feature not implemented (UI placeholder exists)
+- No search or filtering
+- No custom timezone selection
 
-Potential future features:
-- Text note support (UI placeholder exists)
+## Potential Future Enhancements
+
+- Text note support
 - Search and filtering
-- Custom timezone selection
-- Image compression before storage
+- Custom timezone selection  
 - Multiple image upload
 - Camera capture (in addition to file picker)
 - Image editing (crop, rotate, filters)
 - Multi-device sync via Drive
-- Offline-first publishing queueport only)
-- No transcript generation
-- No text note feature (UI present but not wired)
-- No search or filtering
-- Audio format is browser-dependent (typically WebM)
-- Image max size 10MB (JPG/PNG only)
-
-## Future Stages
-
-Stage 3 will add:
-- Google Drive backup/sync
-- Speech-to-text transcription
-- Cloud storage integration
-- Multi-device sync
-- Text note and image upload functionality
+- Offline-first publishing queue
+- Manual transcription control
+- Draft management
 
 ## License
 
