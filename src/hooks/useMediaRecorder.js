@@ -181,5 +181,6 @@ export function useMediaRecorder() {
     duration,
     error,
     isSupported,
+    stream: streamRef.current, // Expose stream for visualizer
   };
 }

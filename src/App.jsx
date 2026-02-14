@@ -46,6 +46,7 @@ function App() {
     duration,
     error,
     isSupported,
+    stream,
   } = useMediaRecorder();
 
   useEffect(() => {
@@ -115,6 +116,7 @@ function App() {
       const now = new Date();
       const snippet = {
         id: generateId(),
+        type: 'audio',
         createdAt: now.getTime(),
         dayKey: getDayKey(now),
         duration,
@@ -258,14 +260,12 @@ function App() {
           caption: snippet.caption || null,
         };
         await saveSnippet(updatedSnippet);
-        showToast('Image attached!', 'info');
       } else {
         // Remove image
         const updatedSnippet = { ...snippet };
         delete updatedSnippet.mediaBlob;
         delete updatedSnippet.caption;
         await saveSnippet(updatedSnippet);
-        showToast('Image removed', 'info');
       }
 
       // Reload snippets
@@ -374,9 +374,23 @@ function App() {
     setPublishSnippet(snippet);
   };
 
-  const handlePublishSuccess = (result) => {
-    // Silently close modal - no toast notification
+  const handlePublishSuccess = async (result) => {
+    // Mark snippet as published and save
     console.log('[App] Published successfully:', result.url);
+    
+    try {
+      const updatedSnippet = {
+        ...publishSnippet,
+        publishedAt: Date.now(),
+        blogPostUrl: result.url,
+      };
+      await saveSnippet(updatedSnippet);
+      await loadSnippets();
+      setRefreshTrigger(prev => prev + 1);
+    } catch (err) {
+      console.error('[App] Failed to mark snippet as published:', err);
+    }
+    
     setPublishSnippet(null);
   };
 
@@ -422,6 +436,7 @@ function App() {
             error={error}
             isSupported={isSupported}
             onStopRecording={stopRecording}
+            stream={stream}
           />
           
           <DailyFeed 

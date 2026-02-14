@@ -67,12 +67,9 @@ function createPostContent(snippet, transcript, imageUrl = null) {
 
   let html = `<div class="voice-journal-entry">`;
   
-  // Add timestamp
-  html += `<p class="timestamp"><em>Recorded on ${formattedDate}</em></p>`;
-  
   // Add image if present
   if (imageUrl) {
-    html += `<p><img src="${imageUrl}" alt="Journal entry image" style="max-width: 100%; height: auto; border-radius: 8px;" /></p>`;
+    html += `<p style="text-align: center;"><img src="${imageUrl}" alt="Journal entry image" style="max-width: 120px; width: 100%; height: auto; border-radius: 8px; display: block; margin: 0 auto;" /></p>`;
   }
   
   // Add caption if present
@@ -90,14 +87,14 @@ function createPostContent(snippet, transcript, imageUrl = null) {
     console.log('[bloggerService] No transcript to add (empty or whitespace only)');
   }
   
-  // Add duration for audio snippets
-  if (snippet.duration) {
-    const minutes = Math.floor(snippet.duration / 60);
-    const seconds = snippet.duration % 60;
-    html += `<p class="metadata"><small>Recording duration: ${minutes}:${seconds.toString().padStart(2, '0')}</small></p>`;
-  }
+  // Add timestamp at the end
+  html += `<p class="timestamp"><em>Recorded on ${formattedDate}</em></p>`;
   
   html += `</div>`;
+  
+  console.log('[bloggerService] Generated HTML:', html);
+  console.log('[bloggerService] Image URL:', imageUrl);
+  console.log('[bloggerService] Has duration?', snippet.duration);
   
   return html;
 }
@@ -147,6 +144,9 @@ function generatePostTitle(snippet, transcript) {
 export async function publishPost(blogId, snippet, transcript = '', imageUrl = null, options = {}) {
   try {
     const token = await ensureValidToken();
+    
+    // VERSION MARKER - Confirm which code is deployed
+    console.log('[bloggerService] VERSION: 2026-02-14-12:15 - No duration, date at end, 120px images');
 
     const {
       isDraft = false,

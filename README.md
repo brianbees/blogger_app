@@ -4,13 +4,14 @@ A mobile-first Progressive Web App for capturing and organizing voice notes and 
 
 ## Features
 
-- 🎤 **Voice Recording** - Capture audio snippets with one tap
+- 🎤 **Voice Recording** - Capture audio snippets with real-time waveform visualization
 - 🖼️ **Image Notes** - Upload photos with captions
 - 🎙️ **Auto-Transcribe** - Automatic speech-to-text transcription
-- 📝 **Publish to Blogger** - One-click blog post creation
+- 📝 **Publish to Blogger** - One-click blog post creation with visual status tracking
 - 💾 **Local-First** - Works offline with IndexedDB storage
 - 📱 **Install as App** - PWA with full-screen mode on mobile
 - 🔐 **No Backend** - All cloud APIs called client-side (OAuth 2.0)
+- ✅ **Smart Status** - Green → for ready posts, blue ✓ for published posts
 
 **Daily organization** • **Audio playback** • **Image viewer** • **Export/Import** • **Google Drive backup**
 

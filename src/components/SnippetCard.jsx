@@ -12,9 +12,10 @@ export default function SnippetCard({ snippet, onDelete, onImageClick, onPublish
   
   // Debug log to track component state
   useEffect(() => {
-    if (snippet.type === 'audio') {
+    if (snippet.audioBlob) {
       console.log('[SnippetCard] Audio snippet render state:', {
         id: snippet.id,
+        type: snippet.type,
         isTranscribing,
         hasTranscript: !!snippet.transcript,
         transcriptLength: snippet.transcript?.length,
@@ -51,28 +52,43 @@ export default function SnippetCard({ snippet, onDelete, onImageClick, onPublish
   // Auto-transcribe audio snippets without transcript
   useEffect(() => {
     const autoTranscribe = async () => {
-      if (snippet.type === 'audio' && snippet.audioBlob && !snippet.transcript && !isTranscribing && isSignedIn) {
-        console.log('[SnippetCard] Starting auto-transcribe for snippet:', snippet.id);
+      // Check for audioBlob (works for both type='audio' and combined audio+image)
+      if (snippet.audioBlob && !snippet.transcript && !isTranscribing && isSignedIn) {
+        console.log('[SnippetCard] ✓ AUTO-TRANSCRIBE STARTING:', {
+          id: snippet.id,
+          hasAudio: !!snippet.audioBlob,
+          hasTranscript: !!snippet.transcript,
+          isSignedIn
+        });
         setIsTranscribing(true);
         try {
           const result = await transcribeAudio(snippet.audioBlob);
-          console.log('[SnippetCard] Transcription complete:', {
+          console.log('[SnippetCard] ✓ TRANSCRIPTION COMPLETE:', {
             id: snippet.id,
             transcriptLength: result.transcript?.length,
-            transcriptPreview: result.transcript?.substring(0, 50)
+            transcriptPreview: result.transcript?.substring(0, 100)
           });
           if (onTranscriptUpdate) {
             onTranscriptUpdate(snippet.id, result.transcript);
           }
         } catch (error) {
-          console.error('[SnippetCard] Auto-transcription error:', error);
+          console.error('[SnippetCard] ❌ AUTO-TRANSCRIPTION ERROR:', error);
           setIsTranscribing(false);
         }
+      } else {
+        console.log('[SnippetCard] Auto-transcribe check:', {
+          id: snippet.id,
+          hasAudio: !!snippet.audioBlob,
+          hasTranscript: !!snippet.transcript,
+          isTranscribing,
+          isSignedIn,
+          reason: !snippet.audioBlob ? 'no audio blob' : snippet.transcript ? 'already has transcript' : !isSignedIn ? 'not signed in' : isTranscribing ? 'already transcribing' : 'unknown'
+        });
       }
     };
     
     autoTranscribe();
-  }, [snippet.type, snippet.audioBlob, snippet.transcript, snippet.id, onTranscriptUpdate, isSignedIn, isTranscribing]);
+  }, [snippet.audioBlob, snippet.transcript, snippet.id, onTranscriptUpdate, isSignedIn, isTranscribing]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -132,8 +148,18 @@ export default function SnippetCard({ snippet, onDelete, onImageClick, onPublish
       id: snippet.id,
       hasTranscript: !!snippet.transcript,
       transcriptLength: snippet.transcript?.length,
-      isTranscribing
-    })
+      isTranscribing,
+      isPublished: !!snippet.publishedAt,
+      blogPostUrl: snippet.blogPostUrl
+    });
+    
+    // If already published, open the blog post
+    if (snippet.publishedAt && snippet.blogPostUrl) {
+      window.open(snippet.blogPostUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    
+    // Otherwise, start the publish flow
     if (onPublishClick) {
       onPublishClick(snippet);
     }
@@ -219,13 +245,34 @@ export default function SnippetCard({ snippet, onDelete, onImageClick, onPublish
               {isSignedIn && onPublishClick && (
                 <button
                   onClick={handlePublish}
-                  className="text-blue-600 hover:text-blue-700 p-2 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
-                  title="Publish to Blogger"
-                  aria-label="Publish to Blogger"
+                  className={`p-3 rounded-xl transition-all min-w-[56px] min-h-[56px] flex items-center justify-center shadow-md border-2 ${
+                    snippet.publishedAt
+                      ? 'bg-blue-500 text-white border-blue-600'
+                      : 'bg-green-500 text-white hover:bg-green-600 active:bg-green-700 border-green-600 scale-110'
+                  }`}
+                  title={
+                    snippet.publishedAt
+                      ? `✓ Published to blog ${new Date(snippet.publishedAt).toLocaleString()}`
+                      : "✓ Ready to publish image!"
+                  }
+                  aria-label={
+                    snippet.publishedAt
+                      ? "Already published - click to view blog post"
+                      : "Ready to publish image to Blogger"
+                  }
                 >
-                  <span aria-hidden="true">📝</span>
+                  <span aria-hidden="true" className="text-3xl font-bold">
+                    {snippet.publishedAt ? '✓' : '→'}
+                  </span>
                 </button>
               )}
+              
+              {!isSignedIn && (
+                <div className="p-3 bg-yellow-50 border-2 border-yellow-300 rounded-xl min-w-[56px] min-h-[56px] flex items-center justify-center">
+                  <span className="text-2xl" title="Sign in to publish">🔒</span>
+                </div>
+              )}
+              
               <button
                 onClick={handleDelete}
                 className="text-gray-400 hover:text-red-600 p-2 rounded-lg hover:bg-red-50 active:bg-red-100 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
@@ -259,6 +306,34 @@ export default function SnippetCard({ snippet, onDelete, onImageClick, onPublish
             <p className="text-sm text-gray-700">{snippet.caption}</p>
           </div>
         )}
+        
+        {snippet.publishedAt ? (
+          <div className="px-4 pb-3">
+            <div className="p-4 bg-blue-100 rounded-lg border-2 border-blue-300 shadow-sm">
+              <div className="flex items-center gap-3 text-blue-800">
+                <span className="text-4xl font-bold">✓</span>
+                <div className="flex-1">
+                  <span className="text-base font-bold">Published!</span>
+                  <p className="text-sm text-blue-700 mt-1">
+                    {snippet.blogPostUrl ? 'Click the ✓ button above to view your blog post' : `Published on ${new Date(snippet.publishedAt).toLocaleString()}`}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : isSignedIn && (
+          <div className="px-4 pb-3">
+            <div className="p-4 bg-green-100 rounded-lg border-2 border-green-300 shadow-sm">
+              <div className="flex items-center gap-3 text-green-800">
+                <span className="text-4xl font-bold">✓</span>
+                <div className="flex-1">
+                  <span className="text-base font-bold">Ready to publish!</span>
+                  <p className="text-sm text-green-700 mt-1">Click the → button above to publish to your blog</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </article>
     );
   }
@@ -278,35 +353,70 @@ export default function SnippetCard({ snippet, onDelete, onImageClick, onPublish
           </span>
         </div>
         <div className="flex items-center gap-1">
+          {(() => {
+            // Debug log for button state
+            const isReady = !snippet.audioBlob || snippet.transcript;
+            const isPublished = !!snippet.publishedAt;
+            const buttonState = isPublished ? 'published' : (!snippet.audioBlob ? 'image-ready' : (isTranscribing ? 'transcribing' : (snippet.transcript ? 'audio-ready' : 'waiting')));
+            console.log('[SnippetCard] Button state:', {
+              id: snippet.id,
+              hasAudio: !!snippet.audioBlob,
+              hasTranscript: !!snippet.transcript,
+              isTranscribing,
+              isSignedIn,
+              isPublished,
+              buttonState,
+              isReady
+            });
+            return null;
+          })()}
+          
           {isSignedIn && onPublishClick && (
             <button
               onClick={handlePublish}
-              disabled={isTranscribing || !snippet.transcript}
-              className={`p-2 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed ${
-                snippet.transcript && !isTranscribing 
-                  ? 'text-green-600 hover:text-green-700 hover:bg-green-50 active:bg-green-100' 
-                  : 'text-blue-600 hover:text-blue-700 hover:bg-blue-50 active:bg-blue-100'
+              disabled={snippet.audioBlob && (isTranscribing || !snippet.transcript)}
+              className={`p-3 rounded-xl transition-all min-w-[56px] min-h-[56px] flex items-center justify-center shadow-md border-2 ${
+                snippet.publishedAt
+                  ? 'bg-blue-500 text-white border-blue-600'
+                  : ((!snippet.audioBlob || snippet.transcript) && !isTranscribing
+                    ? 'bg-green-500 text-white hover:bg-green-600 active:bg-green-700 border-green-600 scale-110' 
+                    : 'bg-white text-gray-400 border-gray-300 cursor-not-allowed')
               }`}
               title={
-                isTranscribing 
-                  ? "Transcribing audio..." 
-                  : snippet.transcript 
-                    ? "Ready to publish!" 
-                    : "Sign in and record to transcribe"
+                snippet.publishedAt
+                  ? `✓ Published to blog ${new Date(snippet.publishedAt).toLocaleString()}`
+                  : !snippet.audioBlob
+                    ? "✓ Ready to publish image!"
+                    : isTranscribing 
+                      ? "Transcribing audio..." 
+                      : snippet.transcript 
+                        ? "✓ Ready to publish to your blog!" 
+                        : "○ Waiting for transcription..."
               }
               aria-label={
-                isTranscribing 
-                  ? "Transcribing, please wait" 
-                  : snippet.transcript 
-                    ? "Ready to publish to Blogger" 
-                    : "Waiting for transcription"
+                snippet.publishedAt
+                  ? "Already published - click to view blog post"
+                  : !snippet.audioBlob
+                    ? "Ready to publish image to Blogger"
+                    : isTranscribing 
+                      ? "Transcribing, please wait" 
+                      : snippet.transcript 
+                        ? "Ready to publish to Blogger" 
+                        : "Waiting for transcription"
               }
             >
-              <span aria-hidden="true" className="text-xl">
-                {isTranscribing ? '⏳' : snippet.transcript ? '📝' : '⚪'}
+              <span aria-hidden="true" className="text-3xl font-bold">
+                {snippet.publishedAt ? '✓' : (!snippet.audioBlob ? '→' : (isTranscribing ? '...' : (snippet.transcript ? '→' : '○')))}
               </span>
             </button>
           )}
+          
+          {!isSignedIn && (
+            <div className="p-3 bg-yellow-50 border-2 border-yellow-300 rounded-xl min-w-[56px] min-h-[56px] flex items-center justify-center">
+              <span className="text-2xl" title="Sign in to publish">🔒</span>
+            </div>
+          )}
+          
           <button
             onClick={handleDelete}
             className="text-gray-400 hover:text-red-600 p-2 rounded-lg hover:bg-red-50 active:bg-red-100 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
@@ -379,31 +489,48 @@ export default function SnippetCard({ snippet, onDelete, onImageClick, onPublish
             title="Attach image to this recording"
             aria-label="Attach image to this recording"
           >
-            <span aria-hidden="true" className="text-xl">📷</span>
+            <span aria-hidden="true" className="text-xl font-bold">+</span>
             <span className="text-sm font-medium">Add Image</span>
           </button>
         )
       )}
       
       {isTranscribing && (
-        <div className="mt-3 p-3 bg-purple-50 rounded-lg border border-purple-200">
-          <div className="flex items-center gap-2 text-purple-700">
-            <span className="animate-pulse text-xl">🎤</span>
+        <div className="mt-3 p-4 bg-purple-100 rounded-lg border-2 border-purple-300 shadow-sm">
+          <div className="flex items-center gap-3 text-purple-800">
+            <span className="animate-pulse text-4xl font-bold">⋯</span>
             <div className="flex-1">
-              <span className="text-sm font-medium">Transcribing audio...</span>
-              <p className="text-xs text-purple-600 mt-0.5">This may take a moment</p>
+              <span className="text-base font-bold">Transcribing audio...</span>
+              <p className="text-sm text-purple-700 mt-1">Please wait while we convert speech to text</p>
             </div>
           </div>
         </div>
       )}
       
-      {!isTranscribing && snippet.transcript && (
-        <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
-          <div className="flex items-center gap-2 text-green-700">
-            <span className="text-xl">✅</span>
-            <span className="text-sm font-medium">Transcript ready - click 📝 to publish</span>
+      {snippet.publishedAt ? (
+        <div className="mt-3 p-4 bg-blue-100 rounded-lg border-2 border-blue-300 shadow-sm">
+          <div className="flex items-center gap-3 text-blue-800">
+            <span className="text-4xl font-bold">✓</span>
+            <div className="flex-1">
+              <span className="text-base font-bold">Published!</span>
+              <p className="text-sm text-blue-700 mt-1">
+                {snippet.blogPostUrl ? 'Click the ✓ button above to view your blog post' : `Published on ${new Date(snippet.publishedAt).toLocaleString()}`}
+              </p>
+            </div>
           </div>
         </div>
+      ) : (
+        !isTranscribing && snippet.transcript && (
+          <div className="mt-3 p-4 bg-green-100 rounded-lg border-2 border-green-300 shadow-sm">
+            <div className="flex items-center gap-3 text-green-800">
+              <span className="text-4xl font-bold">✓</span>
+              <div className="flex-1">
+                <span className="text-base font-bold">Transcript ready!</span>
+                <p className="text-sm text-green-700 mt-1">Click the → button above to publish to your blog</p>
+              </div>
+            </div>
+          </div>
+        )
       )}
     </article>
   );

@@ -1,4 +1,6 @@
-export default function RecordPanel({ isRecording, timer, isSaving, error, isSupported, onStopRecording }) {
+import AudioVisualizer from './AudioVisualizer';
+
+export default function RecordPanel({ isRecording, timer, isSaving, error, isSupported, onStopRecording, stream }) {
   if (!isSupported) {
     return (
       <div className="px-4 pb-3">
@@ -44,9 +46,17 @@ export default function RecordPanel({ isRecording, timer, isSaving, error, isSup
               {Math.floor(timer / 60)}:{(timer % 60).toString().padStart(2, '0')}
             </span>
           </div>
-          <div className="h-2 bg-red-100 rounded-full mb-5 overflow-hidden" role="progressbar" aria-label="Recording waveform">
-            <div className="h-full bg-red-500 rounded-full animate-pulse" style={{ width: '60%' }}></div>
-          </div>
+          
+          {stream ? (
+            <div className="mb-5">
+              <AudioVisualizer stream={stream} />
+            </div>
+          ) : (
+            <div className="h-2 bg-red-100 rounded-full mb-5 overflow-hidden" role="progressbar" aria-label="Recording waveform">
+              <div className="h-full bg-red-500 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+            </div>
+          )}
+          
           <button
             onClick={onStopRecording}
             className="w-full rounded-full bg-red-600 hover:bg-red-700 text-white py-3.5 text-base font-semibold active:scale-[0.98] transition-all shadow-lg min-h-[48px]"
