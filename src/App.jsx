@@ -7,10 +7,14 @@ import DataManager from './components/DataManager';
 import ImagePreviewSheet from './components/ImagePreviewSheet';
 import ImageViewer from './components/ImageViewer';
 import Toast from './components/Toast';
+import CloudSync from './components/CloudSync';
+import PublishModal from './components/PublishModal';
+import MicrophoneSelector from './components/MicrophoneSelector';
 import { useMediaRecorder } from './hooks/useMediaRecorder';
 import { generateId } from './utils/id';
 import { getDayKey } from './utils/dateKey';
 import { saveSnippet, getAllSnippets, deleteSnippet, StorageError } from './utils/storage';
+import { initGoogleServices, isSignedIn as checkSignedIn } from './services/googleAuth';
 
 // Image validation constants
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -25,6 +29,11 @@ function App() {
   const [selectedImageFile, setSelectedImageFile] = useState(null);
   const [viewerImageUrl, setViewerImageUrl] = useState(null);
   const [toast, setToast] = useState(null);
+  const [isCloudSyncOpen, setIsCloudSyncOpen] = useState(false);
+  const [isSignedIn, setIsSignedIn] = useState(false);
+  const [publishSnippet, setPublishSnippet] = useState(null);
+  const [selectedBlogId, setSelectedBlogId] = useState(null);
+  const [isMicSelectorOpen, setIsMicSelectorOpen] = useState(false);
   const lastSavedBlobRef = useRef(null);
 
   const {
@@ -40,7 +49,27 @@ function App() {
 
   useEffect(() => {
     loadSnippets();
+    // Load saved blog ID from localStorage
+    const savedBlogId = localStorage.getItem('selectedBlogId');
+    if (savedBlogId) {
+      setSelectedBlogId(savedBlogId);
+    }
+    
+    // Initialize Google services and check auth state
+    initializeGoogleAuth();
   }, []);
+
+  const initializeGoogleAuth = async () => {
+    try {
+      await initGoogleServices();
+      // Check if user is already signed in
+      const signedIn = checkSignedIn();
+      setIsSignedIn(signedIn);
+    } catch (err) {
+      console.error('Failed to initialize Google services:', err);
+      // Non-critical error, user can still sign in via CloudSync
+    }
+  };
 
   useEffect(() => {
     if (audioBlob && !isRecording && audioBlob !== lastSavedBlobRef.current) {
@@ -207,9 +236,91 @@ function App() {
     }
   };
 
+  const handleTranscriptUpdate = async (id, transcript) => {
+    try {
+      const updatedSnippets = snippets.map(s => 
+        s.id === id ? { ...s, transcript } : s
+      );
+      setSnippets(updatedSnippets);
+      
+      // Also update in storage
+      const snippet = snippets.find(s => s.id === id);
+      if (snippet) {
+        await saveSnippet({ ...snippet, transcript });
+      }
+      
+      // Removed toast notification - visual feedback is in the card itself
+    } catch (err) {
+      console.error('Failed to save transcript:', err);
+      showToast('Failed to save transcription', 'error');
+    }
+  };
+
+  const handleCloudSyncOpen = () => {
+    setIsCloudSyncOpen(true);
+  };
+
+  const handleCloudSyncClose = () => {
+    setIsCloudSyncOpen(false);
+    // Reload blog selection when modal closes
+    const savedBlogId = localStorage.getItem('selectedBlogId');
+    if (savedBlogId) {
+      setSelectedBlogId(savedBlogId);
+    }
+  };
+
+  const handleSignInChange = (signedIn) => {
+    setIsSignedIn(signedIn);
+    if (signedIn) {
+      // Reload blog ID after sign-in
+      const savedBlogId = localStorage.getItem('selectedBlogId');
+      if (savedBlogId) {
+        setSelectedBlogId(savedBlogId);
+      }
+    } else {
+      setSelectedBlogId(null);
+    }
+  };
+
+  const handlePublishClick = (snippet) => {
+    if (!isSignedIn) {
+      showToast('Please sign in to Google to publish', 'error');
+      setIsCloudSyncOpen(true);
+      return;
+    }
+    if (!selectedBlogId) {
+      showToast('Please select a blog in Cloud Sync settings', 'error');
+      setIsCloudSyncOpen(true);
+      return;
+    }
+    setPublishSnippet(snippet);
+  };
+
+  const handlePublishSuccess = (result) => {
+    showToast(`Published successfully! View at ${result.url}`, 'info');
+    setPublishSnippet(null);
+  };
+
+  const handlePublishClose = () => {
+    setPublishSnippet(null);
+  };
+
+  const handleMicSettingsOpen = () => {
+    setIsMicSelectorOpen(true);
+  };
+
+  const handleMicSettingsClose = () => {
+    setIsMicSelectorOpen(false);
+  };
+
+  const handleMicDeviceSelect = (deviceId) => {
+    // Device is already saved in localStorage by MicrophoneSelector
+    showToast('Microphone changed. Try recording again.', 'success');
+  };
+
   return (
     <div className="flex flex-col h-screen bg-gray-50" style={{ minHeight: '100dvh' }} role="application">
-      <Header />
+      <Header onCloudSyncClick={handleCloudSyncOpen} isSignedIn={isSignedIn} />
       <DataManager onDataChange={handleDataChange} onModalChange={setIsModalOpen} />
       
       <main className="flex-1 overflow-y-auto" role="main">
@@ -239,6 +350,9 @@ function App() {
             refreshTrigger={refreshTrigger}
             onDeleteSnippet={handleDeleteSnippet}
             onImageClick={handleImageViewerOpen}
+            onPublishClick={handlePublishClick}
+            onTranscriptUpdate={handleTranscriptUpdate}
+            isSignedIn={isSignedIn}
           />
         </div>
       </main>
@@ -273,6 +387,28 @@ function App() {
           onClose={closeToast}
         />
       )}
+
+      <CloudSync
+        isOpen={isCloudSyncOpen}
+        onClose={handleCloudSyncClose}
+        onSignInChange={handleSignInChange}
+      />
+
+      {publishSnippet && (
+        <PublishModal
+          isOpen={true}
+          onClose={handlePublishClose}
+          snippet={publishSnippet}
+          blogId={selectedBlogId}
+          onSuccess={handlePublishSuccess}
+        />
+      )}
+
+      <MicrophoneSelector
+        isOpen={isMicSelectorOpen}
+        onClose={handleMicSettingsClose}
+        onDeviceSelect={handleMicDeviceSelect}
+      />
     </div>
   );
 }

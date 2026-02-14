@@ -111,16 +111,18 @@ export default function DataManager({ onDataChange, onModalChange }) {
 
   return (
     <>
-      {/* Trigger Button */}
-      <div className="fixed top-4 right-4 z-30">
-        <button
-          onClick={() => setIsOpen(true)}
-          className="bg-white border border-gray-300 rounded-lg px-4 py-2 shadow-lg hover:bg-gray-50 font-medium min-w-[48px] min-h-[48px] flex items-center justify-center active:scale-95 transition-transform"
-          aria-label="Data management"
-        >
-          ⚙️ Data
-        </button>
-      </div>
+      {/* Trigger Button - Hidden for now to avoid UI conflicts */}
+      {false && (
+        <div className="fixed bottom-24 left-4 z-30">
+          <button
+            onClick={() => setIsOpen(true)}
+            className="bg-white border border-gray-300 rounded-lg px-4 py-2 shadow-lg hover:bg-gray-50 font-medium min-w-[48px] min-h-[48px] flex items-center justify-center active:scale-95 transition-transform"
+            aria-label="Data management"
+          >
+            ⚙️ Data
+          </button>
+        </div>
+      )}
 
       {/* Modal */}
       {isOpen && (

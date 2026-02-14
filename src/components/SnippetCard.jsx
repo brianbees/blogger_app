@@ -1,10 +1,12 @@
 import { formatTime } from '../utils/dateKey';
 import { useState, useRef, useEffect } from 'react';
+import { transcribeAudio } from '../services/speechToTextService';
 
-export default function SnippetCard({ snippet, onDelete, onImageClick }) {
+export default function SnippetCard({ snippet, onDelete, onImageClick, onPublishClick, isSignedIn, onTranscriptUpdate }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [imageUrl, setImageUrl] = useState(null);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const audioRef = useRef(null);
   
   const audioBlob = snippet.audioBlob;
@@ -18,6 +20,33 @@ export default function SnippetCard({ snippet, onDelete, onImageClick }) {
       return () => URL.revokeObjectURL(url);
     }
   }, [snippet.type, snippet.mediaBlob]);
+
+  // Reset transcribing state when transcript is received
+  useEffect(() => {
+    if (snippet.transcript && isTranscribing) {
+      setIsTranscribing(false);
+    }
+  }, [snippet.transcript, isTranscribing]);
+
+  // Auto-transcribe audio snippets without transcript
+  useEffect(() => {
+    const autoTranscribe = async () => {
+      if (snippet.type === 'audio' && snippet.audioBlob && !snippet.transcript && !isTranscribing && isSignedIn) {
+        setIsTranscribing(true);
+        try {
+          const result = await transcribeAudio(snippet.audioBlob);
+          if (onTranscriptUpdate) {
+            onTranscriptUpdate(snippet.id, result.transcript);
+          }
+        } catch (error) {
+          console.error('Auto-transcription error:', error);
+          setIsTranscribing(false);
+        }
+      }
+    };
+    
+    autoTranscribe();
+  }, [snippet.type, snippet.audioBlob, snippet.transcript, snippet.id, onTranscriptUpdate, isSignedIn, isTranscribing]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -72,6 +101,30 @@ export default function SnippetCard({ snippet, onDelete, onImageClick }) {
     }
   };
 
+  const handlePublish = () => {
+    if (onPublishClick) {
+      onPublishClick(snippet);
+    }
+  };
+
+  const handleTranscribe = async () => {
+    if (!snippet.audioBlob || isTranscribing) return;
+
+    setIsTranscribing(true);
+    try {
+      const result = await transcribeAudio(snippet.audioBlob);
+      if (onTranscriptUpdate) {
+        onTranscriptUpdate(snippet.id, result.transcript);
+      }
+      // Let the parent update the snippet, which will cause a re-render
+    } catch (error) {
+      console.error('Transcription error:', error);
+      alert(`Transcription failed: ${error.message}`);
+      setIsTranscribing(false);
+    }
+    // Don't set isTranscribing to false here - let it show until the update completes
+  };
+
   // Render Image Snippet
   if (snippet.type === 'image') {
     return (
@@ -88,14 +141,26 @@ export default function SnippetCard({ snippet, onDelete, onImageClick }) {
                 <span className="sr-only">Image</span>
               </span>
             </div>
-            <button
-              onClick={handleDelete}
-              className="text-gray-400 hover:text-red-600 p-2 rounded-lg hover:bg-red-50 active:bg-red-100 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
-              title="Delete this image"
-              aria-label="Delete this image"
-            >
-              <span aria-hidden="true">🗑️</span>
-            </button>
+            <div className="flex items-center gap-1">
+              {isSignedIn && onPublishClick && (
+                <button
+                  onClick={handlePublish}
+                  className="text-blue-600 hover:text-blue-700 p-2 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+                  title="Publish to Blogger"
+                  aria-label="Publish to Blogger"
+                >
+                  <span aria-hidden="true">📝</span>
+                </button>
+              )}
+              <button
+                onClick={handleDelete}
+                className="text-gray-400 hover:text-red-600 p-2 rounded-lg hover:bg-red-50 active:bg-red-100 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+                title="Delete this image"
+                aria-label="Delete this image"
+              >
+                <span aria-hidden="true">🗑️</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -138,14 +203,27 @@ export default function SnippetCard({ snippet, onDelete, onImageClick }) {
             <span className="sr-only">Voice recording</span>
           </span>
         </div>
-        <button
-          onClick={handleDelete}
-          className="text-gray-400 hover:text-red-600 p-2 rounded-lg hover:bg-red-50 active:bg-red-100 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
-          title="Delete this recording"
-          aria-label="Delete this recording"
-        >
-          <span aria-hidden="true">🗑️</span>
-        </button>
+        <div className="flex items-center gap-1">
+          {isSignedIn && onPublishClick && (
+            <button
+              onClick={handlePublish}
+              disabled={isTranscribing}
+              className="text-blue-600 hover:text-blue-700 p-2 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+              title={isTranscribing ? "Transcribing..." : "Publish to Blogger"}
+              aria-label={isTranscribing ? "Transcribing, please wait" : "Publish to Blogger"}
+            >
+              <span aria-hidden="true">{isTranscribing ? '⏳' : '📝'}</span>
+            </button>
+          )}
+          <button
+            onClick={handleDelete}
+            className="text-gray-400 hover:text-red-600 p-2 rounded-lg hover:bg-red-50 active:bg-red-100 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+            title="Delete this recording"
+            aria-label="Delete this recording"
+          >
+            <span aria-hidden="true">🗑️</span>
+          </button>
+        </div>
       </div>
       
       {audioUrl && (
@@ -176,10 +254,13 @@ export default function SnippetCard({ snippet, onDelete, onImageClick }) {
         </audio>
       )}
       
-      {snippet.transcript && (
-        <p className="mt-3 text-sm text-gray-700">
-          {snippet.transcript}
-        </p>
+      {isTranscribing && (
+        <div className="mt-3 p-3 bg-purple-50 rounded-lg border border-purple-200">
+          <div className="flex items-center gap-2 text-purple-700">
+            <span className="animate-pulse">🎤</span>
+            <span className="text-sm font-medium">Transcribing audio...</span>
+          </div>
+        </div>
       )}
     </article>
   );
