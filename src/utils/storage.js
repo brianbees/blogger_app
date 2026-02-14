@@ -94,22 +94,21 @@ export async function saveSnippet(snippet) {
   try {
     const db = await getDB();
     
-    // Validate that blob data is present and is a Blob
-    if (snippet.type === 'image') {
-      if (!snippet.mediaBlob) {
-        throw new StorageError('Image snippet missing mediaBlob', 'INVALID_DATA');
-      }
-      if (!(snippet.mediaBlob instanceof Blob)) {
-        throw new StorageError('mediaBlob must be a Blob object for image snippets', 'INVALID_DATA');
-      }
-    } else {
-      // Default to audio type for backward compatibility
-      if (!snippet.audioBlob) {
-        throw new StorageError('Audio snippet missing audioBlob', 'INVALID_DATA');
-      }
-      if (!(snippet.audioBlob instanceof Blob)) {
-        throw new StorageError('audioBlob must be a Blob object for audio snippets', 'INVALID_DATA');
-      }
+    // Validate that at least one blob is present
+    // Snippets can now have both audio AND image (combined posts)
+    const hasAudio = snippet.audioBlob && snippet.audioBlob instanceof Blob;
+    const hasImage = snippet.mediaBlob && snippet.mediaBlob instanceof Blob;
+    
+    if (!hasAudio && !hasImage) {
+      throw new StorageError('Snippet must have at least audioBlob or mediaBlob', 'INVALID_DATA');
+    }
+    
+    // Validate blob types
+    if (snippet.audioBlob && !(snippet.audioBlob instanceof Blob)) {
+      throw new StorageError('audioBlob must be a Blob object', 'INVALID_DATA');
+    }
+    if (snippet.mediaBlob && !(snippet.mediaBlob instanceof Blob)) {
+      throw new StorageError('mediaBlob must be a Blob object', 'INVALID_DATA');
     }
     
     const snippetWithVersion = {

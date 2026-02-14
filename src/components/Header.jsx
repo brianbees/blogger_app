@@ -1,4 +1,4 @@
-export default function Header({ onCloudSyncClick, isSignedIn }) {
+export default function Header({ onCloudSyncClick, isSignedIn, blogUrl }) {
   const now = new Date();
   const hour = now.getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
@@ -12,6 +12,16 @@ export default function Header({ onCloudSyncClick, isSignedIn }) {
             <p className="text-sm text-gray-500 leading-relaxed">{greeting}, Brian</p>
             <h1 className="text-xl font-semibold text-gray-900 mb-0.5 leading-tight">Voice Journal</h1>
             <p className="text-sm text-gray-600 leading-relaxed">{dateStr}</p>
+            {blogUrl && (
+              <a 
+                href={blogUrl} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+              >
+                View Blog
+              </a>
+            )}
           </div>
           <button
             onClick={onCloudSyncClick}

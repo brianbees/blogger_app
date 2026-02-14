@@ -2,44 +2,70 @@ import { formatTime } from '../utils/dateKey';
 import { useState, useRef, useEffect } from 'react';
 import { transcribeAudio } from '../services/speechToTextService';
 
-export default function SnippetCard({ snippet, onDelete, onImageClick, onPublishClick, isSignedIn, onTranscriptUpdate }) {
+export default function SnippetCard({ snippet, onDelete, onImageClick, onPublishClick, isSignedIn, onTranscriptUpdate, onAttachImage }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [imageUrl, setImageUrl] = useState(null);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const audioRef = useRef(null);
+  const fileInputRef = useRef(null);
+  
+  // Debug log to track component state
+  useEffect(() => {
+    if (snippet.type === 'audio') {
+      console.log('[SnippetCard] Audio snippet render state:', {
+        id: snippet.id,
+        isTranscribing,
+        hasTranscript: !!snippet.transcript,
+        transcriptLength: snippet.transcript?.length,
+        isSignedIn
+      });
+    }
+  });
   
   const audioBlob = snippet.audioBlob;
   const audioUrl = audioBlob ? URL.createObjectURL(audioBlob) : null;
 
-  // Handle image blob URL
+  // Handle image blob URL (for image snippets OR audio snippets with attached image)
   useEffect(() => {
-    if (snippet.type === 'image' && snippet.mediaBlob) {
+    if (snippet.mediaBlob) {
       const url = URL.createObjectURL(snippet.mediaBlob);
       setImageUrl(url);
       return () => URL.revokeObjectURL(url);
+    } else {
+      setImageUrl(null);
     }
-  }, [snippet.type, snippet.mediaBlob]);
+  }, [snippet.mediaBlob]);
 
   // Reset transcribing state when transcript is received
   useEffect(() => {
     if (snippet.transcript && isTranscribing) {
+      console.log('[SnippetCard] Transcript received, resetting isTranscribing:', {
+        id: snippet.id,
+        transcriptLength: snippet.transcript?.length
+      });
       setIsTranscribing(false);
     }
-  }, [snippet.transcript, isTranscribing]);
+  }, [snippet.transcript, isTranscribing, snippet.id]);
 
   // Auto-transcribe audio snippets without transcript
   useEffect(() => {
     const autoTranscribe = async () => {
       if (snippet.type === 'audio' && snippet.audioBlob && !snippet.transcript && !isTranscribing && isSignedIn) {
+        console.log('[SnippetCard] Starting auto-transcribe for snippet:', snippet.id);
         setIsTranscribing(true);
         try {
           const result = await transcribeAudio(snippet.audioBlob);
+          console.log('[SnippetCard] Transcription complete:', {
+            id: snippet.id,
+            transcriptLength: result.transcript?.length,
+            transcriptPreview: result.transcript?.substring(0, 50)
+          });
           if (onTranscriptUpdate) {
             onTranscriptUpdate(snippet.id, result.transcript);
           }
         } catch (error) {
-          console.error('Auto-transcription error:', error);
+          console.error('[SnippetCard] Auto-transcription error:', error);
           setIsTranscribing(false);
         }
       }
@@ -102,8 +128,56 @@ export default function SnippetCard({ snippet, onDelete, onImageClick, onPublish
   };
 
   const handlePublish = () => {
+    console.log('[SnippetCard] Publish clicked:', {
+      id: snippet.id,
+      hasTranscript: !!snippet.transcript,
+      transcriptLength: snippet.transcript?.length,
+      isTranscribing
+    })
     if (onPublishClick) {
       onPublishClick(snippet);
+    }
+  };
+
+  const handleAttachImageClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png'];
+    if (!allowedTypes.includes(file.type)) {
+      alert('Please select a JPG or PNG image');
+      return;
+    }
+
+    // Validate file size (10MB max)
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      alert('Image must be less than 10MB');
+      return;
+    }
+
+    if (onAttachImage) {
+      onAttachImage(snippet.id, file);
+    }
+
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveImage = () => {
+    if (window.confirm('Remove attached image?')) {
+      if (onAttachImage) {
+        onAttachImage(snippet.id, null);
+      }
     }
   };
 
@@ -207,12 +281,30 @@ export default function SnippetCard({ snippet, onDelete, onImageClick, onPublish
           {isSignedIn && onPublishClick && (
             <button
               onClick={handlePublish}
-              disabled={isTranscribing}
-              className="text-blue-600 hover:text-blue-700 p-2 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-              title={isTranscribing ? "Transcribing..." : "Publish to Blogger"}
-              aria-label={isTranscribing ? "Transcribing, please wait" : "Publish to Blogger"}
+              disabled={isTranscribing || !snippet.transcript}
+              className={`p-2 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed ${
+                snippet.transcript && !isTranscribing 
+                  ? 'text-green-600 hover:text-green-700 hover:bg-green-50 active:bg-green-100' 
+                  : 'text-blue-600 hover:text-blue-700 hover:bg-blue-50 active:bg-blue-100'
+              }`}
+              title={
+                isTranscribing 
+                  ? "Transcribing audio..." 
+                  : snippet.transcript 
+                    ? "Ready to publish!" 
+                    : "Sign in and record to transcribe"
+              }
+              aria-label={
+                isTranscribing 
+                  ? "Transcribing, please wait" 
+                  : snippet.transcript 
+                    ? "Ready to publish to Blogger" 
+                    : "Waiting for transcription"
+              }
             >
-              <span aria-hidden="true">{isTranscribing ? '⏳' : '📝'}</span>
+              <span aria-hidden="true" className="text-xl">
+                {isTranscribing ? '⏳' : snippet.transcript ? '📝' : '⚪'}
+              </span>
             </button>
           )}
           <button
@@ -253,12 +345,63 @@ export default function SnippetCard({ snippet, onDelete, onImageClick, onPublish
           <source src={audioUrl} type="audio/webm" />
         </audio>
       )}
+
+      {/* Image attachment section */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png"
+        onChange={handleFileSelect}
+        className="hidden"
+      />
+
+      {imageUrl ? (
+        <div className="mt-3 relative group">
+          <img 
+            src={imageUrl} 
+            alt="Attached to recording" 
+            className="w-full h-auto max-h-[200px] object-cover rounded-lg"
+          />
+          <button
+            onClick={handleRemoveImage}
+            className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white rounded-full p-2 shadow-lg opacity-90 hover:opacity-100 transition-opacity"
+            title="Remove image"
+            aria-label="Remove attached image"
+          >
+            <span aria-hidden="true">✕</span>
+          </button>
+        </div>
+      ) : (
+        onAttachImage && (
+          <button
+            onClick={handleAttachImageClick}
+            className="mt-3 w-full p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-gray-600 hover:text-blue-600 flex items-center justify-center gap-2"
+            title="Attach image to this recording"
+            aria-label="Attach image to this recording"
+          >
+            <span aria-hidden="true" className="text-xl">📷</span>
+            <span className="text-sm font-medium">Add Image</span>
+          </button>
+        )
+      )}
       
       {isTranscribing && (
         <div className="mt-3 p-3 bg-purple-50 rounded-lg border border-purple-200">
           <div className="flex items-center gap-2 text-purple-700">
-            <span className="animate-pulse">🎤</span>
-            <span className="text-sm font-medium">Transcribing audio...</span>
+            <span className="animate-pulse text-xl">🎤</span>
+            <div className="flex-1">
+              <span className="text-sm font-medium">Transcribing audio...</span>
+              <p className="text-xs text-purple-600 mt-0.5">This may take a moment</p>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {!isTranscribing && snippet.transcript && (
+        <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
+          <div className="flex items-center gap-2 text-green-700">
+            <span className="text-xl">✅</span>
+            <span className="text-sm font-medium">Transcript ready - click 📝 to publish</span>
           </div>
         </div>
       )}

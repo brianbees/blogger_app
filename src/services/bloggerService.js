@@ -81,10 +81,13 @@ function createPostContent(snippet, transcript, imageUrl = null) {
   }
   
   // Add transcript
-  if (transcript) {
+  if (transcript && transcript.trim().length > 0) {
+    console.log('[bloggerService] Adding transcript to post content, length:', transcript.length);
     html += `<div class="transcript">`;
     html += `<p>${escapeHtml(transcript).replace(/\n/g, '</p><p>')}</p>`;
     html += `</div>`;
+  } else {
+    console.log('[bloggerService] No transcript to add (empty or whitespace only)');
   }
   
   // Add duration for audio snippets
@@ -151,8 +154,23 @@ export async function publishPost(blogId, snippet, transcript = '', imageUrl = n
       customTitle = null,
     } = options;
 
+    console.log('[bloggerService] publishPost called with:', {
+      blogId,
+      snippetId: snippet.id,
+      snippetType: snippet.type,
+      transcriptLength: transcript?.length || 0,
+      transcriptPreview: transcript?.substring(0, 50),
+      hasImageUrl: !!imageUrl
+    });
+
     const title = customTitle || generatePostTitle(snippet, transcript);
     const content = createPostContent(snippet, transcript, imageUrl);
+
+    console.log('[bloggerService] Generated content:', {
+      titleLength: title.length,
+      contentLength: content.length,
+      contentPreview: content.substring(0, 200)
+    });
 
     const postData = {
       kind: 'blogger#post',
