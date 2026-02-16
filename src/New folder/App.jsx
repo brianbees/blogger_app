@@ -40,7 +40,7 @@ function App() {
   const lastSavedBlobRef = useRef(null);
   const lastSavedContinuousRef = useRef(null); // Track continuous recordings
   const draftTranscriptRef = useRef(null); // Store draft transcript for recovery
-
+  
   // Recording mode: 'simple' or 'continuous'
   const [recordingMode, setRecordingMode] = useState(() => {
     return localStorage.getItem('recordingMode') || 'continuous'; // Default to continuous
@@ -60,16 +60,14 @@ function App() {
   }, []);
 
   const handleContinuousRecordingComplete = useCallback((recordingData) => {
-    const safeChunks = Array.isArray(recordingData?.chunks) ? recordingData.chunks : [];
-
     console.log('[App] 🎉 handleContinuousRecordingComplete called with:', {
-      blobSize: recordingData?.blob?.size,
-      transcriptLength: recordingData?.transcript?.length,
-      chunks: safeChunks.length,
-      duration: recordingData?.duration
+      blobSize: recordingData.blob?.size,
+      transcriptLength: recordingData.transcript?.length,
+      chunks: recordingData.chunks.length,
+      duration: recordingData.duration
     });
 
-    if (!recordingData?.blob) {
+    if (!recordingData.blob) {
       console.error('[App] No audio data in recording');
       return;
     }
@@ -80,7 +78,7 @@ function App() {
       type: 'audio',
       createdAt: now.getTime(),
       dayKey: getDayKey(now),
-      duration: recordingData?.duration ?? 0,
+      duration: recordingData.duration,
       audioBlob: recordingData.blob,
       transcript: recordingData.transcript || null,
       syncStatus: 'local',
@@ -89,7 +87,7 @@ function App() {
 
     // OPTIMISTIC UI: Add to state immediately
     console.log('[App] ➕ Adding continuous snippet optimistically, ID:', snippet.id);
-    setSnippets(prev => [snippet, ...(Array.isArray(prev) ? prev : [])]);
+    setSnippets(prev => [snippet, ...prev]);
     setRefreshTrigger(prev => prev + 1);
 
     // Save to IndexedDB in background
@@ -123,15 +121,12 @@ function App() {
     autoTranscribe: isSignedIn, // Only auto-transcribe if signed in
     languageCode: 'en-GB',
     onAutoSave: handleAutoSave, // Enable auto-save
-
-    // IMPORTANT: hook calls with full recordingData object
-    onRecordingComplete: (recordingData) => {
-      const blob = recordingData?.blob;
+    onRecordingComplete: (blob) => {
       if (blob && blob.size > 0) {
         const id = Date.now();
         console.log('[Snippet] Saved snippet', { id, sizeBytes: blob.size, mime: blob.type });
       }
-      handleContinuousRecordingComplete(recordingData);
+      handleContinuousRecordingComplete(blob);
     }, // Direct callback when recording stops
   });
 
@@ -162,10 +157,10 @@ function App() {
     if (savedBlogUrl) {
       setSelectedBlogUrl(savedBlogUrl);
     }
-
+    
     // Initialize Google services and check auth state
     initializeGoogleAuth();
-
+    
     // Check for draft transcript from interrupted recording
     checkForDraftRecovery();
   }, []);
@@ -174,10 +169,10 @@ function App() {
     try {
       const draftTranscript = localStorage.getItem('draftTranscript');
       const draftTimestamp = localStorage.getItem('draftTimestamp');
-
+      
       if (draftTranscript && draftTimestamp) {
         const ageMinutes = (Date.now() - parseInt(draftTimestamp)) / 1000 / 60;
-
+        
         // Only offer recovery if draft is less than 30 minutes old
         if (ageMinutes < 30) {
           const shouldRecover = confirm(
@@ -185,7 +180,7 @@ function App() {
             `Would you like to recover it?\n\n` +
             `Preview: "${draftTranscript.substring(0, 100)}..."`
           );
-
+          
           if (shouldRecover) {
             // Create a snippet from the draft
             handleRecoverDraft(draftTranscript);
@@ -221,14 +216,14 @@ function App() {
       };
 
       // OPTIMISTIC UI: Add to state immediately
-      setSnippets(prev => [snippet, ...(Array.isArray(prev) ? prev : [])]);
+      setSnippets(prev => [snippet, ...prev]);
       setRefreshTrigger(prev => prev + 1);
-
+      
       // Save to IndexedDB in background
       await saveSnippet(snippet);
-
+      
       showToast('Draft transcript recovered!', 'success');
-
+      
       // Clear draft after successful recovery
       localStorage.removeItem('draftTranscript');
       localStorage.removeItem('draftTimestamp');
@@ -272,7 +267,7 @@ function App() {
     try {
       const allSnippets = await getAllSnippets();
       console.log('[App] 📋 loadSnippets - About to setSnippets, count:', allSnippets.length, 'last ID:', allSnippets[allSnippets.length-1]?.id);
-      setSnippets(Array.isArray(allSnippets) ? allSnippets : []);
+      setSnippets(allSnippets);
       setStorageError(null);
     } catch (err) {
       if (err instanceof StorageError) {
@@ -309,7 +304,7 @@ function App() {
 
       // OPTIMISTIC UI: Add to state immediately
       console.log('[App] ➕ Adding snippet optimistically, ID:', snippet.id);
-      setSnippets(prev => [snippet, ...(Array.isArray(prev) ? prev : [])]);
+      setSnippets(prev => [snippet, ...prev]);
       setRefreshTrigger(prev => prev + 1);
 
       // Save to IndexedDB in background
@@ -345,7 +340,7 @@ function App() {
       const now = new Date();
       const fullTranscript = continuousRecorder.getFullTranscript();
       const finalBlob = continuousRecorder.getFinalBlob();
-
+      
       if (!finalBlob) {
         throw new Error('No audio data to save');
       }
@@ -377,19 +372,19 @@ function App() {
 
       // OPTIMISTIC UI: Add to state immediately
       console.log('[App] ➕ Adding snippet optimistically, ID:', snippet.id);
-      setSnippets(prev => [snippet, ...(Array.isArray(prev) ? prev : [])]);
+      setSnippets(prev => [snippet, ...prev]);
       setRefreshTrigger(prev => prev + 1);
 
       // Save to IndexedDB in background
       await saveSnippet(snippet);
-
+      
       // Clear draft transcript after successful save
       localStorage.removeItem('draftTranscript');
       localStorage.removeItem('draftTimestamp');
       draftTranscriptRef.current = null;
-
+      
       console.log('[App] handleSaveContinuousRecording - Save complete!');
-
+      
       // Show success message
       const stats = continuousRecorder.getChunkStats();
       if (stats.failed > 0) {
@@ -417,11 +412,11 @@ function App() {
       showToast('Stop recording before changing mode', 'error');
       return;
     }
-
+    
     const newMode = recordingMode === 'simple' ? 'continuous' : 'simple';
     setRecordingMode(newMode);
     localStorage.setItem('recordingMode', newMode);
-
+    
     const modeLabel = newMode === 'continuous' ? 'Continuous (auto-split)' : 'Simple';
     showToast(`Recording mode: ${modeLabel}`, 'success');
   };
@@ -448,7 +443,7 @@ function App() {
 
     try {
       const now = new Date();
-
+      
       const snippet = {
         id: generateId(),
         type: 'image',
@@ -460,12 +455,12 @@ function App() {
         dataVersion: 1,
         syncStatus: 'local',
       };
-
+      
       // OPTIMISTIC UI: Add to state immediately
-      setSnippets(prev => [snippet, ...(Array.isArray(prev) ? prev : [])]);
+      setSnippets(prev => [snippet, ...prev]);
       setRefreshTrigger(prev => prev + 1);
       setSelectedImageFile(null);
-
+      
       // Save to IndexedDB in background
       await saveSnippet(snippet);
       // Don't show success toast, just close the sheet
@@ -517,9 +512,9 @@ function App() {
   const handleDeleteSnippet = async (id) => {
     try {
       // OPTIMISTIC UI: Remove from state immediately
-      setSnippets(prev => (Array.isArray(prev) ? prev.filter(s => s.id !== id) : []));
+      setSnippets(prev => prev.filter(s => s.id !== id));
       setRefreshTrigger(prev => prev + 1);
-
+      
       // Delete from IndexedDB in background
       await deleteSnippet(id);
     } catch (err) {
@@ -556,7 +551,7 @@ function App() {
       }
 
       // OPTIMISTIC UI: Update state immediately
-      setSnippets(prev => (Array.isArray(prev) ? prev.map(s => s.id === snippetId ? updatedSnippet : s) : [updatedSnippet]));
+      setSnippets(prev => prev.map(s => s.id === snippetId ? updatedSnippet : s));
       setRefreshTrigger(prev => prev + 1);
 
       // Save to IndexedDB in background
@@ -584,7 +579,7 @@ function App() {
 
       // Create updated snippet with transcript
       const updatedSnippet = { ...snippet, transcript };
-
+      
       // Save to storage FIRST
       console.log('[App] Saving updated snippet to storage:', {
         id: updatedSnippet.id,
@@ -593,14 +588,14 @@ function App() {
       });
       await saveSnippet(updatedSnippet);
       console.log('[App] Snippet saved successfully to storage');
-
+      
       // Then update state
       const updatedSnippets = snippets.map(s => 
         s.id === id ? updatedSnippet : s
       );
       setSnippets(updatedSnippets);
       console.log('[App] State updated with transcript');
-
+      
     } catch (err) {
       console.error('Failed to save transcript:', err);
       showToast('Failed to save transcription', 'error');
@@ -667,24 +662,24 @@ function App() {
   const handlePublishSuccess = async (result) => {
     // Mark snippet as published and save
     console.log('[App] Published successfully:', result.url);
-
+    
     try {
       const updatedSnippet = {
         ...publishSnippet,
         publishedAt: Date.now(),
         blogPostUrl: result.url,
       };
-
+      
       // OPTIMISTIC UI: Update state immediately
-      setSnippets(prev => (Array.isArray(prev) ? prev.map(s => s.id === publishSnippet.id ? updatedSnippet : s) : [updatedSnippet]));
+      setSnippets(prev => prev.map(s => s.id === publishSnippet.id ? updatedSnippet : s));
       setRefreshTrigger(prev => prev + 1);
-
+      
       // Save to IndexedDB in background
       await saveSnippet(updatedSnippet);
     } catch (err) {
       console.error('[App] Failed to mark snippet as published:', err);
     }
-
+    
     setPublishSnippet(null);
   };
 
@@ -713,7 +708,7 @@ function App() {
         blogUrl={selectedBlogUrl} 
       />
       <DataManager onDataChange={handleDataChange} onModalChange={setIsModalOpen} />
-
+      
       {/* Recording mode toggle button */}
       {!isRecording && (
         <div className="max-w-4xl mx-auto px-4 pt-4">
@@ -726,7 +721,7 @@ function App() {
           </button>
         </div>
       )}
-
+      
       <main className="flex-1 overflow-y-auto" role="main">
         <div className="max-w-4xl mx-auto px-4 pt-6 pb-32">
           {storageError && (
@@ -739,7 +734,7 @@ function App() {
               <p className="text-sm">{storageError}</p>
             </div>
           )}
-
+          
           {recordingMode === 'simple' ? (
             <RecordPanel
               isRecording={isRecording}
@@ -764,7 +759,7 @@ function App() {
               onRetryChunk={continuousRecorder.retryChunk}
             />
           )}
-
+          
           <DailyFeed 
             snippets={snippets} 
             refreshTrigger={refreshTrigger}

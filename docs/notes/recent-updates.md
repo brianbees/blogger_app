@@ -2,7 +2,38 @@
 
 ## February 2026
 
-### Authentication Persistence Improvements (NEW!)
+### Recording Finalization & Security Hardening (2026-02-16)
+
+**Race-Proof MediaRecorder Stop:**
+- `useContinuousRecorder.js:stopRecording()` now async/await pattern
+- Waits for MediaRecorder `onstop` event before finalizing
+- Guarantees final audio chunk is captured
+- Prevents empty blob callback when audio exists
+- Implementation: Promise wrapper around `onstop` event handler
+
+**Credential-Safe Logging:**
+- `googleAuth.js` now logs only presence flags (`hasClientId: true`)
+- Never logs actual client IDs, API keys, or tokens
+- Error messages sanitized (no credential values in output)
+- Production-safe console output for debugging
+
+**PWA Meta Tag Update:**
+- `index.html` uses `mobile-web-app-capable` instead of deprecated `apple-mobile-web-app-capable`
+- Removes browser deprecation warnings
+- Maintains mobile PWA functionality
+
+**Single Snippet Persistence Log:**
+- `App.jsx` logs snippet save once with essential metadata only
+- Format: `[Snippet] Saved snippet { id, sizeBytes, mime }`
+- Removes redundant/verbose logging from callback chain
+
+**File References:**
+- `src/hooks/useContinuousRecorder.js:575-625` - Async stop implementation
+- `src/services/googleAuth.js:17-22, 334-343` - Safe logging pattern
+- `index.html:7` - Meta tag update
+- `src/App.jsx:125-132` - Persistence log
+
+### Authentication Persistence Improvements
 
 **Stay Signed In Feature:**
 - User-controlled toggle in CloudSync settings

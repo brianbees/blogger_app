@@ -58,6 +58,7 @@ export function useContinuousRecorder(options = {}) {
   const [error, setError] = useState(null);
   const [isSupported, setIsSupported] = useState(true);
   const chunksRef = useRef([]); // Authoritative buffer for all audio data
+  const chunkStatusRef = useRef([]); // Authoritative buffer for chunk status objects (avoid stale React state)
 
   // Refs for recording state
   const mediaRecorderRef = useRef(null);
@@ -158,9 +159,13 @@ export function useContinuousRecorder(options = {}) {
         console.log(`[Transcription] Processing chunk ${chunk.index} (attempt ${currentRetry + 1}/${MAX_RETRIES + 1})`);
 
         // Update status to transcribing
-        setChunks(prev => prev.map(c =>
-          c.id === chunk.id ? { ...c, status: 'transcribing' } : c
-        ));
+        setChunks(prev => {
+          const updated = prev.map(c =>
+            c.id === chunk.id ? { ...c, status: 'transcribing' } : c
+          );
+          chunkStatusRef.current = updated;
+          return updated;
+        });
 
         // Call Speech-to-Text API
         const result = await transcribeAudio(chunk.blob, languageCode);
@@ -168,9 +173,10 @@ export function useContinuousRecorder(options = {}) {
         console.log(`[Transcription] Chunk ${chunk.index} succeeded, transcript length: ${result.transcript?.length || 0}`);
 
         // Update with transcript and mark as done
-        setChunks(prev => prev.map(c =>
-          c.id === chunk.id
-            ? {
+        setChunks(prev => {
+          const updated = prev.map(c =>
+            c.id === chunk.id
+              ? {
                 ...c,
                 status: 'done',
                 transcript: result.transcript || '',
@@ -182,8 +188,11 @@ export function useContinuousRecorder(options = {}) {
                 // This prevents memory growth during long recording sessions
                 blob: null,
               }
-            : c
-        ));
+              : c
+          );
+          chunkStatusRef.current = updated;
+          return updated;
+        });
 
         // Mark as processed to prevent duplicate transcription
         processedChunkIdsRef.current.add(chunk.id);
@@ -207,16 +216,20 @@ export function useContinuousRecorder(options = {}) {
           console.error(`[Transcription] Chunk ${chunk.index} failed after ${MAX_RETRIES + 1} attempts`);
           
           // Update with error
-          setChunks(prev => prev.map(c =>
-            c.id === chunk.id
-              ? {
+          setChunks(prev => {
+            const updated = prev.map(c =>
+              c.id === chunk.id
+                ? {
                   ...c,
                   status: 'failed',
                   error: err.message || 'Transcription failed after multiple retries',
                   retryCount: currentRetry,
                 }
-              : c
-          ));
+                : c
+            );
+            chunkStatusRef.current = updated;
+            return updated;
+          });
           
           return false; // Failed
         }
@@ -304,9 +317,13 @@ export function useContinuousRecorder(options = {}) {
     processedChunkIdsRef.current.delete(chunkId);
 
     // Reset chunk status
-    setChunks(prev => prev.map(c =>
-      c.id === chunkId ? { ...c, status: 'pending', error: null } : c
-    ));
+    setChunks(prev => {
+      const updated = prev.map(c =>
+        c.id === chunkId ? { ...c, status: 'pending', error: null } : c
+      );
+      chunkStatusRef.current = updated;
+      return updated;
+    });
 
     // Add to queue
     enqueueChunkForTranscription(chunkId);
@@ -430,6 +447,7 @@ export function useContinuousRecorder(options = {}) {
       mediaRecorderRef.current = mediaRecorder;
       chunkIndexRef.current = 0;
       setChunks([]);
+      chunkStatusRef.current = [];
       chunksRef.current = [];
 
       // Reset transcription queue state
@@ -465,6 +483,7 @@ export function useContinuousRecorder(options = {}) {
           };
           setChunks(prev => {
             const arr = [...prev, newChunk];
+            chunkStatusRef.current = arr;
             console.log('[Recording] APPEND CHUNK, new chunks.length:', arr.length, 'chunksRef.current.length:', chunksRef.current.length, 'chunk.size:', event.data.size);
             return arr;
           });
@@ -556,43 +575,106 @@ export function useContinuousRecorder(options = {}) {
     const mr = mediaRecorderRef.current;
     if (!mr) return;
 
-    // If already inactive, finalize immediately
-    if (mr.state === 'inactive') {
+    const cleanupUI = () => {
+      // Always return UI/state to a safe idle state
+      setIsRecording(false);
+      setIsPaused(false);
+
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+      if (autoSaveIntervalRef.current) {
+        clearInterval(autoSaveIntervalRef.current);
+        autoSaveIntervalRef.current = null;
+      }
+    };
+
+    try {
+      // If already inactive, finalize immediately
+      if (mr.state === 'inactive') {
+        finalizeFromChunks();
+        return;
+      }
+
+      // Wait for onstop
+      const stopped = new Promise(resolve => {
+        const prev = mr.onstop;
+        mr.onstop = (ev) => {
+          try { prev?.(ev); } finally { resolve(); }
+        };
+      });
+
+      // Flush any buffered audio before stopping
+      try { mr.requestData(); } catch (_) {}
+
+      mr.stop();
+      await stopped;
+
       finalizeFromChunks();
-      return;
+    } finally {
+      cleanupUI();
     }
-
-    // Wait for onstop
-    const stopped = new Promise(resolve => {
-      const prev = mr.onstop;
-      mr.onstop = (ev) => {
-        try { prev?.(ev); } finally { resolve(); }
-      };
-    });
-
-    try { mr.requestData(); } catch (_) {}
-    mr.stop();
-    await stopped;
-    finalizeFromChunks();
-  }, [onAutoSave, performAutoSave, getFullTranscript, timer, onRecordingComplete]);
+  }, [onRecordingComplete]);
 
   function finalizeFromChunks() {
-    const parts = chunksRef.current;
+    const parts = chunksRef.current || [];
     const totalBytes = parts.reduce((s, b) => s + (b?.size || 0), 0);
+
     if (!parts.length || totalBytes === 0) {
       console.warn('[Recording] No audio captured; skipping onRecordingComplete');
       return null;
     }
+
     const mime = mediaRecorderRef.current?.mimeType || 'audio/webm';
     const blob = new Blob(parts, { type: mime });
-    if (onRecordingComplete) {
-      onRecordingComplete(blob);
+
+    // Use refs to avoid stale React state at stop time
+    const statusChunks = Array.isArray(chunkStatusRef.current) ? chunkStatusRef.current : [];
+
+    // Stitch transcript in a stable order
+    const fullTranscript = statusChunks
+      .filter(c => c?.status === 'done' && c.transcript)
+      .sort((a, b) => a.index - b.index)
+      .map(c => String(c.transcript).trim())
+      .filter(t => t.length > 0)
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const start = startTimeRef.current || Date.now();
+    const durationMs = Math.max(0, Date.now() - start);
+    const duration = Math.floor(durationMs / 1000);
+
+    const chunkMetadata = {
+      totalChunks: statusChunks.length,
+      successfulChunks: statusChunks.filter(c => c.status === 'done').length,
+      failedChunks: statusChunks.filter(c => c.status === 'failed').length,
+    };
+
+    const recordingData = {
+      blob,
+      transcript: fullTranscript,
+      chunks: statusChunks,
+      duration,
+      durationMs,
+      chunkMetadata,
+    };
+
+    try {
+      onRecordingComplete?.(recordingData);
+    } catch (e) {
+      console.error('[Recording] onRecordingComplete threw', e);
+    } finally {
+      // Clear buffers only after callback finishes
+      chunksRef.current = [];
+      chunkStatusRef.current = [];
     }
-    chunksRef.current = [];
+
     return blob;
   }
 
-  /**
+  /** /**
    * Pause recording (if supported) with defensive guards
    */
   const pauseRecording = useCallback(() => {

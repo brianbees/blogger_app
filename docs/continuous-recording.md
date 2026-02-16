@@ -221,7 +221,7 @@ const {
   
   // Controls
   startRecording,    // With defensive guards
-  stopRecording,     // With state validation
+  stopRecording,     // Async/await, race-proof finalization
   retryChunk,        // Requeue failed chunk
   
   // Utilities
@@ -233,6 +233,31 @@ const {
   autoTranscribe: true,
   onAutoSave: callback  // Draft auto-save callback
 });
+```
+
+**Key Implementation Details:**
+
+`stopRecording()` (src/hooks/useContinuousRecorder.js:575-625):
+- Returns a Promise that resolves when recording fully stops
+- Waits for MediaRecorder `onstop` event before finalizing
+- Guarantees final audio chunk is captured and processed
+- Prevents empty blob callback when audio data exists
+- Calls `onRecordingComplete` with full recordingData object containing:
+  - `blob` - Combined audio Blob
+  - `transcript` - Full stitched transcript
+  - `chunks` - Array of chunk metadata
+  - `duration` - Total recording duration in seconds
+  - `chunkMetadata` - Success/failure statistics
+
+Implementation uses Promise wrapper around `onstop`:
+```javascript
+const stopped = new Promise(resolve => {
+  const prev = mr.onstop;
+  mr.onstop = (ev) => {
+    try { prev?.(ev); } finally { resolve(); }
+  };
+});
+await stopped;
 ```
 
 **Transcription Flow:**

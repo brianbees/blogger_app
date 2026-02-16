@@ -269,6 +269,18 @@ const SCOPES = [
 - `getStaySignedInPreference()` / `setStaySignedInPreference()` - User preference
 - `signOut()` - Revoke token, clear timers and session
 
+**Security:**
+- **Credential-Safe Logging**: Console logs never expose client IDs, API keys, or tokens
+- Implementation (src/services/googleAuth.js:17-22, 334-343):
+  ```javascript
+  console.log('[Auth] Checking credentials', {
+    hasClientId: !!GOOGLE_CLIENT_ID,  // Boolean only
+    hasApiKey: !!GOOGLE_API_KEY,       // Boolean only
+  });
+  ```
+- Error messages sanitized to remove credential values
+- Production-safe debugging output
+
 ### Blogger API v3
 
 **Implementation:** `src/services/bloggerService.js`

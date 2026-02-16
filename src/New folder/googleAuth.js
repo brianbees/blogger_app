@@ -14,7 +14,7 @@ const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
 
 // Debug logging for production
-// Do not log secrets or token contents. Log presence only.
+// Do not log secrets or lengths. Log presence only.
 console.log('[Auth] Google Auth Config', {
   hasClientId: !!GOOGLE_CLIENT_ID,
   hasApiKey: !!GOOGLE_API_KEY,
@@ -161,7 +161,7 @@ function scheduleTokenRefresh() {
   // Only schedule if we have enough time
   if (timeUntilRefresh > 0) {
     console.log(`[Auth] Token refresh scheduled in ${Math.round(timeUntilRefresh / 1000 / 60)} minutes`);
-
+    
     refreshTimer = setTimeout(() => {
       console.log('[Auth] Auto-refreshing token...');
       performSilentRefresh();
@@ -199,10 +199,10 @@ function performSilentRefresh() {
     console.log('[Auth] Token refreshed successfully');
     currentAccessToken = response.access_token;
     tokenExpiresAt = Date.now() + TOKEN_LIFETIME;
-
+    
     window.gapi.client.setToken({ access_token: response.access_token });
-
-    // Persist token and expiry (token contents are not logged)
+    
+    // Persist token and expiry
     if (staySignedIn) {
       try {
         localStorage.setItem('google_access_token', response.access_token);
@@ -213,7 +213,7 @@ function performSilentRefresh() {
         console.warn('[Auth] Failed to persist token:', e);
       }
     }
-
+    
     // Schedule next refresh
     scheduleTokenRefresh();
   };
@@ -250,9 +250,9 @@ function silentTokenRefresh() {
       console.log('[Auth] Token refreshed successfully');
       currentAccessToken = response.access_token;
       tokenExpiresAt = Date.now() + TOKEN_LIFETIME;
-
+      
       window.gapi.client.setToken({ access_token: response.access_token });
-
+      
       // Persist token and expiry
       if (staySignedIn) {
         try {
@@ -264,10 +264,10 @@ function silentTokenRefresh() {
           console.warn('[Auth] Failed to persist token:', e);
         }
       }
-
+      
       // Schedule next refresh
       scheduleTokenRefresh();
-
+      
       resolve(response.access_token);
     };
 
@@ -290,7 +290,7 @@ export function setStaySignedInPreference(enabled) {
   try {
     localStorage.setItem(STAY_SIGNED_IN_KEY, enabled.toString());
     console.log(`[Auth] Stay signed in ${enabled ? 'enabled' : 'disabled'}`);
-
+    
     if (!enabled) {
       // Clear token if user disables stay signed in
       clearStoredToken();
@@ -334,23 +334,22 @@ async function validateToken(token) {
 export async function initGoogleServices() {
   console.log('[Auth] Checking credentials', {
     hasClientId: !!GOOGLE_CLIENT_ID,
-    hasApiKey: !!GOOGLE_API_KEY,
+    hasApiKey: !!GOOGLE_API_KEY
   });
-
   if (!GOOGLE_CLIENT_ID || !GOOGLE_API_KEY) {
     const error = '[Auth] Google API credentials not configured.';
     console.error(error);
     throw new Error(error);
   }
 
-  console.log('[Auth] initGoogleServices: Loading scripts...');
+  console.log('initGoogleServices: Loading scripts...');
   try {
     await Promise.all([loadGapiScript(), loadGisScript()]);
-    console.log('[Auth] initGoogleServices: Scripts loaded, initializing clients...');
+    console.log('initGoogleServices: Scripts loaded, initializing clients...');
     await initializeGapiClient();
     initializeGisClient();
-    console.log('[Auth] initGoogleServices: Clients initialized');
-
+    console.log('initGoogleServices: Clients initialized');
+    
     // Try to restore token from localStorage if user wants to stay signed in
     const staySignedIn = getStaySignedInPreference();
     if (staySignedIn) {
@@ -358,24 +357,25 @@ export async function initGoogleServices() {
         const storedToken = localStorage.getItem('google_access_token');
         const timestamp = localStorage.getItem('google_token_timestamp');
         const expires = localStorage.getItem('google_token_expires');
-
+        
         if (storedToken && timestamp) {
           const now = Date.now();
+          const tokenAge = now - parseInt(timestamp);
           const expiresAt = expires ? parseInt(expires) : parseInt(timestamp) + TOKEN_LIFETIME;
-
+          
           // Check if token hasn't expired yet
           if (expiresAt > now) {
             console.log('[Auth] Found stored token, validating...');
-
+            
             // Validate token with Google
             const isValid = await validateToken(storedToken);
-
+            
             if (isValid) {
               currentAccessToken = storedToken;
               tokenExpiresAt = expiresAt;
               window.gapi.client.setToken({ access_token: storedToken });
               console.log(`[Auth] Restored valid token (expires in ${Math.round((expiresAt - now) / 1000 / 60)} min)`);
-
+              
               // Schedule automatic refresh
               scheduleTokenRefresh();
             } else {
@@ -386,7 +386,7 @@ export async function initGoogleServices() {
             // Token expired
             console.log('[Auth] Stored token expired, attempting silent refresh...');
             clearStoredToken();
-
+            
             // Try silent refresh
             try {
               await silentTokenRefresh();
@@ -406,10 +406,10 @@ export async function initGoogleServices() {
       console.log('[Auth] Stay signed in disabled, not restoring token');
       clearStoredToken();
     }
-
+    
     return true;
   } catch (error) {
-    console.error('[Auth] Failed to initialize Google services:', error);
+    console.error('Failed to initialize Google services:', error);
     throw error;
   }
 }
@@ -434,9 +434,9 @@ export function requestAccessToken() {
       console.log('[Auth] Access token received');
       currentAccessToken = response.access_token;
       tokenExpiresAt = Date.now() + TOKEN_LIFETIME;
-
+      
       window.gapi.client.setToken({ access_token: response.access_token });
-
+      
       // Persist token if user wants to stay signed in
       const staySignedIn = getStaySignedInPreference();
       if (staySignedIn) {
@@ -448,13 +448,13 @@ export function requestAccessToken() {
         } catch (e) {
           console.warn('[Auth] Failed to persist token:', e);
         }
-
+        
         // Schedule automatic refresh
         scheduleTokenRefresh();
       } else {
         console.log('[Auth] Token not persisted (stay signed in disabled)');
       }
-
+      
       resolve(response.access_token);
     };
 
@@ -482,7 +482,7 @@ export function requestAccessToken() {
  */
 export function signOut() {
   console.log('[Auth] Signing out...');
-
+  
   const token = window.gapi.client.getToken();
   if (token !== null) {
     window.google.accounts.oauth2.revoke(token.access_token, () => {
@@ -490,18 +490,18 @@ export function signOut() {
     });
     window.gapi.client.setToken(null);
   }
-
+  
   // Clear state
   currentAccessToken = null;
   tokenExpiresAt = null;
-
+  
   // Clear refresh timer
   if (refreshTimer) {
     clearTimeout(refreshTimer);
     refreshTimer = null;
     console.log('[Auth] Refresh timer cleared');
   }
-
+  
   // Clear from localStorage
   clearStoredToken();
 }
@@ -513,7 +513,7 @@ export function isSignedIn() {
   if (!gapiInitialized || !window.gapi || !window.gapi.client) {
     return false;
   }
-
+  
   const token = window.gapi.client.getToken();
   return token !== null && currentAccessToken !== null;
 }
@@ -564,12 +564,12 @@ export async function ensureValidToken() {
   if (!isSignedIn()) {
     throw new Error('User not signed in. Please sign in using the cloud icon in the header.');
   }
-
+  
   // Check if token is expiring soon (within 5 minutes)
   const now = Date.now();
   if (tokenExpiresAt && (tokenExpiresAt - now) < REFRESH_BEFORE_EXPIRY) {
     console.log('[Auth] Token expiring soon, refreshing...');
-
+    
     try {
       // Try silent refresh
       await silentTokenRefresh();
@@ -580,6 +580,6 @@ export async function ensureValidToken() {
       throw new Error('Session expired. Please sign in again.');
     }
   }
-
+  
   return getAccessToken();
 }
