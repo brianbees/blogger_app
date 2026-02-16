@@ -14,11 +14,10 @@ const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
 
 // Debug logging for production
+// Do not log secrets or lengths. Log presence only.
 console.log('Google Auth Config:', {
   hasClientId: !!GOOGLE_CLIENT_ID,
   hasApiKey: !!GOOGLE_API_KEY,
-  clientIdLength: GOOGLE_CLIENT_ID?.length || 0,
-  apiKeyLength: GOOGLE_API_KEY?.length || 0
 });
 
 const SCOPES = [
