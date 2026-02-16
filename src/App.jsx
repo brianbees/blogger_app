@@ -449,13 +449,17 @@ function App() {
     try {
       const now = new Date();
 
+      // Create a proper Blob with explicit MIME type to ensure mobile compatibility
+      const imageBlob = new Blob([imageFile], { type: imageFile.type });
+
       const snippet = {
         id: generateId(),
         type: 'image',
         timestamp: now.getTime(),
         createdAt: now.getTime(),
         dayKey: getDayKey(now),
-        mediaBlob: imageFile, // File is a subtype of Blob
+        mediaBlob: imageBlob,
+        mimeType: imageFile.type, // Store MIME type separately for mobile compatibility
         caption: caption,
         dataVersion: 1,
         syncStatus: 'local',
@@ -542,16 +546,19 @@ function App() {
 
       let updatedSnippet;
       if (file) {
-        // Add/replace image
+        // Add/replace image - create proper Blob with explicit MIME type for mobile compatibility
+        const imageBlob = new Blob([file], { type: file.type });
         updatedSnippet = {
           ...snippet,
-          mediaBlob: file,
+          mediaBlob: imageBlob,
+          mimeType: file.type, // Store MIME type separately for mobile compatibility
           caption: snippet.caption || null,
         };
       } else {
         // Remove image
         updatedSnippet = { ...snippet };
         delete updatedSnippet.mediaBlob;
+        delete updatedSnippet.mimeType;
         delete updatedSnippet.caption;
       }
 

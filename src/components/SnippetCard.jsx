@@ -1,6 +1,7 @@
 import { formatTime } from '../utils/dateKey';
 import { useState, useRef, useEffect } from 'react';
 import { transcribeAudio } from '../services/speechToTextService';
+import { ensureBlobMimeType } from '../utils/imageUtils';
 
 export default function SnippetCard({ snippet, onDelete, onImageClick, onPublishClick, isSignedIn, onTranscriptUpdate, onAttachImage }) {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -29,14 +30,41 @@ export default function SnippetCard({ snippet, onDelete, onImageClick, onPublish
 
   // Handle image blob URL (for image snippets OR audio snippets with attached image)
   useEffect(() => {
-    if (snippet.mediaBlob) {
-      const url = URL.createObjectURL(snippet.mediaBlob);
-      setImageUrl(url);
-      return () => URL.revokeObjectURL(url);
-    } else {
-      setImageUrl(null);
-    }
-  }, [snippet.mediaBlob]);
+    let mounted = true;
+    let urlToRevoke = null;
+    
+    const createImageUrl = async () => {
+      if (snippet.mediaBlob) {
+        try {
+          // Ensure Blob has correct MIME type for mobile compatibility (S21, etc.)
+          const blob = await ensureBlobMimeType(snippet.mediaBlob, snippet.mimeType);
+          if (mounted) {
+            const url = URL.createObjectURL(blob);
+            urlToRevoke = url;
+            setImageUrl(url);
+          }
+        } catch (err) {
+          console.error('[SnippetCard] Failed to create image URL:', err);
+          if (mounted) {
+            setImageUrl(null);
+          }
+        }
+      } else {
+        if (mounted) {
+          setImageUrl(null);
+        }
+      }
+    };
+
+    createImageUrl();
+
+    return () => {
+      mounted = false;
+      if (urlToRevoke) {
+        URL.revokeObjectURL(urlToRevoke);
+      }
+    };
+  }, [snippet.mediaBlob, snippet.mimeType]);
 
   // Reset transcribing state when transcript is received
   useEffect(() => {

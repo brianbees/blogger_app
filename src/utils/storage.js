@@ -198,14 +198,15 @@ export async function exportAllData() {
           return {
             ...snippet,
             mediaBlob: mediaBase64,
-            mediaBlobType: snippet.mediaBlob.type,
+            // Use stored mimeType property or fallback to blob type
+            mediaBlobType: snippet.mimeType || snippet.mediaBlob.type || 'image/jpeg',
           };
         } else if (snippet.audioBlob) {
           const audioBase64 = await blobToBase64(snippet.audioBlob);
           return {
             ...snippet,
             audioBlob: audioBase64,
-            audioBlobType: snippet.audioBlob.type,
+            audioBlobType: snippet.audioBlob.type || 'audio/webm',
           };
         }
         return snippet;
@@ -255,8 +256,10 @@ export async function importData(exportedData) {
         const snippetToImport = { ...snippet, dataVersion: DATA_VERSION };
         
         if (snippet.type === 'image' && snippet.mediaBlob) {
-          const mediaBlob = base64ToBlob(snippet.mediaBlob, snippet.mediaBlobType || 'image/jpeg');
+          const mimeType = snippet.mediaBlobType || snippet.mimeType || 'image/jpeg';
+          const mediaBlob = base64ToBlob(snippet.mediaBlob, mimeType);
           snippetToImport.mediaBlob = mediaBlob;
+          snippetToImport.mimeType = mimeType; // Store MIME type for mobile compatibility
           delete snippetToImport.mediaBlobType;
         } else if (snippet.audioBlob) {
           const audioBlob = base64ToBlob(snippet.audioBlob, snippet.audioBlobType || 'audio/webm');
