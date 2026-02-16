@@ -48,6 +48,32 @@ const REFRESH_BEFORE_EXPIRY = 300000; // Refresh 5 minutes before expiry
 const STAY_SIGNED_IN_KEY = 'google_stay_signed_in'; // User preference
 
 /**
+ * Clear stored token from localStorage
+ */
+function clearStoredToken() {
+  try {
+    localStorage.removeItem('google_access_token');
+    localStorage.removeItem('google_token_timestamp');
+    localStorage.removeItem('google_token_expires');
+    console.log('[Auth] Cleared stored token');
+  } catch (e) {
+    console.warn('[Auth] Failed to clear stored token:', e);
+  }
+}
+
+/**
+ * Get user's "stay signed in" preference
+ */
+function getStaySignedInPreferenceInternal() {
+  try {
+    const pref = localStorage.getItem(STAY_SIGNED_IN_KEY);
+    return pref === null ? true : pref === 'true'; // Default to true
+  } catch (e) {
+    return true; // Default to enabled
+  }
+}
+
+/**
  * Load Google API client library
  */
 function loadGapiScript() {
@@ -137,15 +163,9 @@ function scheduleTokenRefresh() {
   if (timeUntilRefresh > 0) {
     console.log(`[Auth] Token refresh scheduled in ${Math.round(timeUntilRefresh / 1000 / 60)} minutes`);
     
-    refreshTimer = setTimeout(async () => {
+    refreshTimer = setTimeout(() => {
       console.log('[Auth] Auto-refreshing token...');
-      try {
-        await silentTokenRefresh();
-      } catch (error) {
-        console.error('[Auth] Auto-refresh failed:', error);
-        // Clear stored token if refresh fails
-        clearStoredToken();
-      }
+      performSilentRefresh();
     }, timeUntilRefresh);
   } else {
     console.warn('[Auth] Token already expired or expiring soon');
@@ -153,8 +173,58 @@ function scheduleTokenRefresh() {
 }
 
 /**
- * Silent token refresh (no consent screen)
- * Uses prompt: '' for seamless refresh
+ * Perform silent token refresh (internal helper)
+ * This is the actual refresh logic without circular dependencies
+ */
+function performSilentRefresh() {
+  if (!tokenClient) {
+    console.error('[Auth] Cannot refresh - Google Identity Services not initialized');
+    clearStoredToken();
+    return;
+  }
+
+  // Check if user wants to stay signed in
+  const staySignedIn = getStaySignedInPreferenceInternal();
+  if (!staySignedIn) {
+    console.log('[Auth] Stay signed in disabled, skipping auto-refresh');
+    return;
+  }
+
+  tokenClient.callback = (response) => {
+    if (response.error) {
+      console.error('[Auth] Silent refresh failed:', response.error);
+      clearStoredToken();
+      return;
+    }
+
+    console.log('[Auth] Token refreshed successfully');
+    currentAccessToken = response.access_token;
+    tokenExpiresAt = Date.now() + TOKEN_LIFETIME;
+    
+    window.gapi.client.setToken({ access_token: response.access_token });
+    
+    // Persist token and expiry
+    if (staySignedIn) {
+      try {
+        localStorage.setItem('google_access_token', response.access_token);
+        localStorage.setItem('google_token_timestamp', Date.now().toString());
+        localStorage.setItem('google_token_expires', tokenExpiresAt.toString());
+        console.log('[Auth] Token persisted to localStorage');
+      } catch (e) {
+        console.warn('[Auth] Failed to persist token:', e);
+      }
+    }
+    
+    // Schedule next refresh
+    scheduleTokenRefresh();
+  };
+
+  // Request token with empty prompt for silent refresh
+  tokenClient.requestAccessToken({ prompt: '' });
+}
+
+/**
+ * Silent token refresh (returns a promise for external callers)
  */
 function silentTokenRefresh() {
   return new Promise((resolve, reject) => {
@@ -164,7 +234,7 @@ function silentTokenRefresh() {
     }
 
     // Check if user wants to stay signed in
-    const staySignedIn = getStaySignedInPreference();
+    const staySignedIn = getStaySignedInPreferenceInternal();
     if (!staySignedIn) {
       console.log('[Auth] Stay signed in disabled, skipping auto-refresh');
       reject(new Error('Auto-refresh disabled by user preference'));
@@ -208,33 +278,14 @@ function silentTokenRefresh() {
 }
 
 /**
- * Clear stored token from localStorage
- */
-function clearStoredToken() {
-  try {
-    localStorage.removeItem('google_access_token');
-    localStorage.removeItem('google_token_timestamp');
-    localStorage.removeItem('google_token_expires');
-    console.log('[Auth] Cleared stored token');
-  } catch (e) {
-    console.warn('[Auth] Failed to clear stored token:', e);
-  }
-}
-
-/**
- * Get user's "stay signed in" preference
+ * Get user's "stay signed in" preference (EXPORTED)
  */
 export function getStaySignedInPreference() {
-  try {
-    const pref = localStorage.getItem(STAY_SIGNED_IN_KEY);
-    return pref === null ? true : pref === 'true'; // Default to true
-  } catch (e) {
-    return true; // Default to enabled
-  }
+  return getStaySignedInPreferenceInternal();
 }
 
 /**
- * Set user's "stay signed in" preference
+ * Set user's "stay signed in" preference (EXPORTED)
  */
 export function setStaySignedInPreference(enabled) {
   try {
@@ -248,9 +299,12 @@ export function setStaySignedInPreference(enabled) {
         clearTimeout(refreshTimer);
         refreshTimer = null;
       }
-    } else if (isSignedIn()) {
-      // Schedule refresh if enabling and already signed in
-      scheduleTokenRefresh();
+    } else {
+      // Check if already signed in and schedule refresh
+      const token = window.gapi?.client?.getToken();
+      if (token !== null && currentAccessToken) {
+        scheduleTokenRefresh();
+      }
     }
   } catch (e) {
     console.warn('[Auth] Failed to save preference:', e);

@@ -6,6 +6,10 @@ import basicSsl from '@vitejs/plugin-basic-ssl'
 // https://vite.dev/config/
 export default defineConfig({
   base: '/blogger/', // Set base path for subfolder deployment
+  build: {
+    sourcemap: true, // Enable sourcemaps for debugging
+    minify: 'terser', // Minify for production
+  },
   server: {
     host: true, // Expose on network
     https: true,

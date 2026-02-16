@@ -3,7 +3,7 @@ export default function Header({ onCloudSyncClick, isSignedIn, blogUrl }) {
   const hour = now.getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
   const dateStr = now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-  const version = '1.0.4'; // Update with each build
+  const version = '1.0.5'; // Update with each build
 
   return (
     <header className="sticky top-0 bg-white shadow-sm z-20 px-4 pt-safe pt-4 pb-3" role="banner">
