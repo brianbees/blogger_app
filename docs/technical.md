@@ -237,8 +237,16 @@ export async function getStorageQuota()
 1. Load Google Identity Services library
 2. Initialize OAuth client with Client ID
 3. Request access token with scopes
-4. Store token in localStorage (50-minute expiry)
-5. Automatically refresh when expired
+4. Store token in localStorage with expiry timestamp
+5. Automatically refresh token 5 minutes before expiry
+6. Restore session on app load if "Stay signed in" enabled
+
+**Token Lifecycle Management:**
+- **Token Expiry**: 1 hour (3600 seconds)
+- **Refresh Window**: 5 minutes before expiry
+- **Auto-Refresh**: Scheduled timer refreshes token proactively
+- **Silent Refresh**: Hidden iframe refresh without user interaction
+- **Session Persistence**: User preference stored in localStorage
 
 **Scopes Required:**
 ```javascript
@@ -252,10 +260,14 @@ const SCOPES = [
 ```
 
 **Key Functions:**
-- `initGoogleServices()` - Load and initialize OAuth
-- `requestAccessToken()` - Trigger sign-in flow
-- `ensureValidToken()` - Get valid token (refresh if needed)
-- `signOut()` - Revoke token and clear session
+- `initGoogleServices()` - Load and initialize OAuth, restore session
+- `requestAccessToken()` - Trigger sign-in flow with expiry tracking
+- `ensureValidToken()` - Get valid token (auto-refresh if expiring)
+- `scheduleTokenRefresh()` - Set timer to refresh before expiry
+- `silentTokenRefresh()` - Refresh token without user prompt
+- `validateToken()` - Verify token validity with Google
+- `getStaySignedInPreference()` / `setStaySignedInPreference()` - User preference
+- `signOut()` - Revoke token, clear timers and session
 
 ### Blogger API v3
 

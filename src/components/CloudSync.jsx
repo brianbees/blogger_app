@@ -1,5 +1,13 @@
 import { useState, useEffect } from 'react';
-import { initGoogleServices, requestAccessToken, signOut, isSignedIn, getUserProfile } from '../services/googleAuth';
+import { 
+  initGoogleServices, 
+  requestAccessToken, 
+  signOut, 
+  isSignedIn, 
+  getUserProfile,
+  getStaySignedInPreference,
+  setStaySignedInPreference 
+} from '../services/googleAuth';
 import { getUserBlogs } from '../services/bloggerService';
 import { getStorageInfo } from '../services/driveService';
 
@@ -18,6 +26,7 @@ function CloudSync({ isOpen, onClose, onSignInChange }) {
   const [storageInfo, setStorageInfo] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [staySignedIn, setStaySignedIn] = useState(true);
 
   useEffect(() => {
     initializeServices();
@@ -55,6 +64,9 @@ function CloudSync({ isOpen, onClose, onSignInChange }) {
       setUserProfile(profile);
       setBlogs(userBlogs);
       setStorageInfo(storage);
+      
+      // Load stay-signed-in preference
+      setStaySignedIn(getStaySignedInPreference());
 
       // Auto-select first blog if available
       if (userBlogs.length > 0 && !selectedBlogId) {
@@ -109,6 +121,11 @@ function CloudSync({ isOpen, onClose, onSignInChange }) {
     if (selectedBlog) {
       localStorage.setItem('selectedBlogUrl', selectedBlog.url);
     }
+  };
+  
+  const handleStaySignedInToggle = (checked) => {
+    setStaySignedIn(checked);
+    setStaySignedInPreference(checked);
   };
 
   const formatBytes = (bytes) => {
@@ -253,6 +270,34 @@ function CloudSync({ isOpen, onClose, onSignInChange }) {
                   </div>
                 </div>
               )}
+
+              {/* Stay Signed In Toggle */}
+              <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
+                <div className="flex-1">
+                  <label htmlFor="stay-signed-in" className="text-sm font-medium text-gray-900 cursor-pointer">
+                    Stay signed in
+                  </label>
+                  <p className="text-xs text-gray-600 mt-1">
+                    Automatically refresh your session to stay connected
+                  </p>
+                </div>
+                <button
+                  id="stay-signed-in"
+                  type="button"
+                  role="switch"
+                  aria-checked={staySignedIn}
+                  onClick={() => handleStaySignedInToggle(!staySignedIn)}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                    staySignedIn ? 'bg-blue-600' : 'bg-gray-200'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      staySignedIn ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
 
               {/* Sign Out */}
               <button

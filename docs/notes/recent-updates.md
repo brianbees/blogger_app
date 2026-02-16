@@ -2,7 +2,27 @@
 
 ## February 2026
 
-### Continuous Recording - Production-Grade Refinements (NEW!)
+### Authentication Persistence Improvements (NEW!)
+
+**Stay Signed In Feature:**
+- User-controlled toggle in CloudSync settings
+- Automatic token refresh before expiry (5-minute buffer)
+- Silent refresh without user interaction or popup
+- Session restoration on app reload if enabled
+
+**Token Lifecycle Management:**
+- Proactive token refresh 5 minutes before 1-hour expiry
+- Scheduled refresh timer prevents mid-use logouts
+- Token validation with Google on app initialization
+- Graceful fallback to re-authentication if refresh fails
+
+**User Experience:**
+- Toggle switch in Cloud Sync modal for "Stay signed in"
+- Persistent sessions across browser restarts (if enabled)
+- No interruption during long recording/transcription sessions
+- Clear preference storage (localStorage)
+
+### Continuous Recording - Production-Grade Refinements
 
 **Sequential Transcription Queue:**
 - Chunks now processed strictly one at a time (no parallel API calls)
