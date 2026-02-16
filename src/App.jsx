@@ -185,14 +185,14 @@ function App() {
     if (audioBlob && !isRecording && audioBlob !== lastSavedBlobRef.current) {
       handleSaveSnippet();
     }
-  }, [audioBlob, isRecording]);
+  }, [audioBlob, isRecording, handleSaveSnippet]);
 
   // Handle continuous recording completion
   useEffect(() => {
     if (recordingMode === 'continuous' && !continuousRecorder.isRecording && continuousRecorder.chunks.length > 0) {
       handleSaveContinuousRecording();
     }
-  }, [recordingMode, continuousRecorder.isRecording, continuousRecorder.chunks.length]);
+  }, [recordingMode, continuousRecorder.isRecording, continuousRecorder.chunks.length, handleSaveContinuousRecording]);
 
   const showToast = (message, type = 'error') => {
     setToast({ message, type });
@@ -216,7 +216,7 @@ function App() {
     }
   };
 
-  const handleSaveSnippet = async () => {
+  const handleSaveSnippet = useCallback(async () => {
     if (!audioBlob || audioBlob === lastSavedBlobRef.current) return;
 
     setIsSaving(true);
@@ -252,9 +252,9 @@ function App() {
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [audioBlob, duration]);
 
-  const handleSaveContinuousRecording = async () => {
+  const handleSaveContinuousRecording = useCallback(async () => {
     if (isSaving || continuousRecorder.chunks.length === 0) return;
 
     setIsSaving(true);
@@ -321,7 +321,7 @@ function App() {
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [isSaving, continuousRecorder, timer]);
 
   const handleToggleRecordingMode = () => {
     if (isRecording) {
