@@ -2,7 +2,45 @@
 
 ## February 2026
 
-### Continuous Recording Feature (NEW!)
+### Continuous Recording - Production-Grade Refinements (NEW!)
+
+**Sequential Transcription Queue:**
+- Chunks now processed strictly one at a time (no parallel API calls)
+- Queue-based system ensures ordering integrity
+- Prevents rate limiting and race conditions
+- Later chunks wait for earlier chunks to complete
+
+**Exponential Backoff Retry Logic:**
+- Automatic retry with backoff: 1s → 2s → 4s → 8s (capped)
+- Maximum 3 retry attempts per chunk (4 total attempts)
+- Preserves transcript ordering during retries
+- Prevents duplicate text insertion
+
+**Memory Management:**
+- Blob data released after successful transcription
+- Memory-safe for long recordings (5-10 minutes)
+- Heap memory returns to baseline after save
+- Object URLs revoked to prevent leaks
+
+**Draft Auto-Save:**
+- Transcript auto-saved to localStorage every 10 seconds
+- Browser crash recovery prompt on reload
+- Drafts expire after 30 minutes
+- Cleared automatically after successful save
+
+**Browser Stability Improvements:**
+- Defensive state guards prevent invalid operations
+- Microphone disconnection detection and graceful handling
+- Tab suspension handled without corruption
+- Clean error recovery preserves transcript state
+
+**Cost Documentation:**
+- Inline code comments explain API call rates
+- 25s chunks = ~2.4 calls/minute
+- Balances cost vs. API timeout risk
+- Clear rationale for chunk duration choice
+
+### Continuous Recording Feature
 
 - **Continuous Recording Mode**: Record for 2+ minutes without hitting API limits
   - Automatic 25-second chunking using MediaRecorder timeslice

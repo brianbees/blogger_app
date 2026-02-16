@@ -38,20 +38,35 @@ function App() {
   const [selectedBlogUrl, setSelectedBlogUrl] = useState(null);
   const [isMicSelectorOpen, setIsMicSelectorOpen] = useState(false);
   const lastSavedBlobRef = useRef(null);
+  const draftTranscriptRef = useRef(null); // Store draft transcript for recovery
   
   // Recording mode: 'simple' or 'continuous'
   const [recordingMode, setRecordingMode] = useState(() => {
     return localStorage.getItem('recordingMode') || 'continuous'; // Default to continuous
   });
 
+  // Auto-save callback for continuous recorder
+  const handleAutoSave = useCallback((transcript, chunks) => {
+    // Save draft to localStorage for recovery in case of browser crash
+    draftTranscriptRef.current = transcript;
+    try {
+      localStorage.setItem('draftTranscript', transcript);
+      localStorage.setItem('draftTimestamp', Date.now().toString());
+      console.log('[App] Draft auto-saved:', transcript.length, 'chars');
+    } catch (err) {
+      console.error('[App] Failed to auto-save draft:', err);
+    }
+  }, []);
+
   // Simple recorder (original)
   const simpleRecorder = useMediaRecorder();
 
-  // Continuous recorder (new)
+  // Continuous recorder (new) with auto-save
   const continuousRecorder = useContinuousRecorder({
     chunkDuration: 25, // 25 seconds per chunk
     autoTranscribe: isSignedIn, // Only auto-transcribe if signed in
     languageCode: 'en-GB',
+    onAutoSave: handleAutoSave, // Enable auto-save
   });
 
   // Use the active recorder based on mode
@@ -84,7 +99,75 @@ function App() {
     
     // Initialize Google services and check auth state
     initializeGoogleAuth();
+    
+    // Check for draft transcript from interrupted recording
+    checkForDraftRecovery();
   }, []);
+
+  const checkForDraftRecovery = () => {
+    try {
+      const draftTranscript = localStorage.getItem('draftTranscript');
+      const draftTimestamp = localStorage.getItem('draftTimestamp');
+      
+      if (draftTranscript && draftTimestamp) {
+        const ageMinutes = (Date.now() - parseInt(draftTimestamp)) / 1000 / 60;
+        
+        // Only offer recovery if draft is less than 30 minutes old
+        if (ageMinutes < 30) {
+          const shouldRecover = confirm(
+            `Found unsaved recording transcript from ${Math.round(ageMinutes)} minutes ago. ` +
+            `Would you like to recover it?\n\n` +
+            `Preview: "${draftTranscript.substring(0, 100)}..."`
+          );
+          
+          if (shouldRecover) {
+            // Create a snippet from the draft
+            handleRecoverDraft(draftTranscript);
+          } else {
+            // Clear draft
+            localStorage.removeItem('draftTranscript');
+            localStorage.removeItem('draftTimestamp');
+          }
+        } else {
+          // Draft too old, clear it
+          localStorage.removeItem('draftTranscript');
+          localStorage.removeItem('draftTimestamp');
+        }
+      }
+    } catch (err) {
+      console.error('[App] Failed to check draft recovery:', err);
+    }
+  };
+
+  const handleRecoverDraft = async (transcript) => {
+    try {
+      const now = new Date();
+      const snippet = {
+        id: generateId(),
+        type: 'audio',
+        createdAt: now.getTime(),
+        dayKey: getDayKey(now),
+        duration: 0, // Unknown duration
+        audioBlob: null, // No audio blob (transcript only)
+        transcript: transcript,
+        syncStatus: 'local',
+        recovered: true, // Flag to indicate this was recovered
+      };
+
+      await saveSnippet(snippet);
+      await loadSnippets();
+      setRefreshTrigger(prev => prev + 1);
+      
+      showToast('Draft transcript recovered!', 'success');
+      
+      // Clear draft after successful recovery
+      localStorage.removeItem('draftTranscript');
+      localStorage.removeItem('draftTimestamp');
+    } catch (err) {
+      console.error('[App] Failed to recover draft:', err);
+      showToast('Failed to recover draft', 'error');
+    }
+  };
 
   const initializeGoogleAuth = async () => {
     try {
@@ -213,6 +296,11 @@ function App() {
       
       await loadSnippets();
       setRefreshTrigger(prev => prev + 1);
+      
+      // Clear draft transcript after successful save
+      localStorage.removeItem('draftTranscript');
+      localStorage.removeItem('draftTimestamp');
+      draftTranscriptRef.current = null;
       
       // Show success message
       const stats = continuousRecorder.getChunkStats();

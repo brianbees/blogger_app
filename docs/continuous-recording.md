@@ -4,7 +4,39 @@
 
 Voice Journal now supports **continuous recording mode** that allows users to record longer thoughts (2+ minutes) without hitting the 30-second API limit of Google's synchronous Speech-to-Text endpoint.
 
-The feature automatically splits audio into short chunks (25 seconds each), transcribes each chunk independently, and stitches the results into a single cohesive transcript—all while maintaining a seamless user experience.
+The feature automatically splits audio into short chunks (25 seconds each), transcribes each chunk **sequentially** with automatic retry logic, and stitches the results into a single cohesive transcript—all while maintaining production-grade robustness and memory efficiency.
+
+## Production-Grade Features
+
+### ✅ Sequential Transcription Queue
+- Chunks are transcribed **one at a time** in strict order
+- No parallel API calls (prevents rate limiting and ordering issues)
+- Later chunks wait for earlier chunks to complete
+- Preserves transcript ordering even with delays
+
+### ✅ Exponential Backoff Retry
+- Failed chunks automatically retry with backoff: 1s → 2s → 4s → 8s
+- Maximum 3 retry attempts per chunk (4 total attempts)
+- Successful transcriptions release memory immediately
+- Prevents duplicate text insertion during retries
+
+### ✅ Memory Management
+- Blob data released after successful transcription
+- Object URLs revoked to prevent memory leaks
+- Safe for long recordings (5-10 minutes)
+- Memory returns to baseline after save
+
+### ✅ Draft Auto-Save
+- Transcript auto-saved to localStorage every 10 seconds
+- Browser crash recovery: prompts to restore draft on reload
+- Drafts expire after 30 minutes
+- Cleared automatically after successful save
+
+### ✅ Browser Stability
+- Defensive state guards prevent invalid operations
+- Handles microphone disconnection gracefully
+- Tab suspension detected and handled
+- Clean error recovery without state corruption
 
 ## How It Works
 
@@ -17,34 +49,103 @@ When you start a continuous recording:
 3. Each chunk is a valid, playable audio Blob (WebM/Opus format)
 4. Chunks are stored in memory with metadata (index, timestamps, status)
 
-### 2. Progressive Transcription
+**Cost Awareness:**
+- Each chunk = 1 Speech-to-Text API call
+- At 25s per chunk: ~2.4 API calls/minute
+- 5-minute recording = ~12 API calls
+- Chunk duration chosen to balance cost vs. timeout risk
 
-As each chunk is completed:
+### 2. Sequential Transcription Pipeline
 
-1. The chunk is immediately sent to Google's Speech-to-Text API (`v1/speech:recognize`)
-2. Status updates from `pending` → `transcribing` → `done` (or `failed`)
-3. Transcript text is appended to the full transcript in correct order
-4. The UI updates in real-time to show the growing transcript
+Unlike the initial implementation, chunks are now processed **strictly one at a time**:
 
-### 3. Error Handling
+1. New chunks are added to a transcription queue
+2. Queue processor takes the first chunk and transcribes it
+3. Only after completion (success or failure), the next chunk is processed
+4. This prevents:
+   - Parallel API calls that could hit rate limits
+   - Out-of-order transcript assembly
+   - Race conditions during retries
 
-If a chunk transcription fails:
+**Retry Logic:**
+- If transcription fails, automatic retry with exponential backoff
+- Retry delays: 1s → 2s → 4s → 8s (capped)
+- Maximum 3 retries (4 total attempts)
+- Failed chunks can be manually retried later
 
-- **Prior text is preserved** - No data loss
-- Chunk status changes to `failed` with error message
-- A **retry button** appears for that specific chunk
-- Other chunks continue processing normally
-- User can retry failed chunks at any time
+### 3. Memory Management
 
-### 4. Final Stitching
+After successful transcription:
 
-When recording stops:
+1. **Blob data is released** - Set to `null` to free memory
+2. Transcript text is kept (much smaller than audio)
+3. Final recording combines remaining blobs (if any)
+4. Long sessions (5-10 minutes) don't cause memory growth
 
-1. Any remaining audio data is captured as the final chunk
-2. All chunk transcripts are joined in order by chunk index
-3. Text is cleaned up (extra whitespace, sentence spacing)
-4. Combined audio Blob is created from all chunks
-5. Saved to IndexedDB as a single note with full transcript
+**Before:** Each chunk keeps blob → 5 min = ~7MB in memory  
+**After:** Blobs released → 5 min = ~100KB in memory
+
+### 4. Draft Auto-Save
+
+While recording:
+
+1. Every 10 seconds, current transcript is saved to `localStorage`
+2. Timestamp stored for freshness check
+3. If browser crashes/closes, draft is preserved
+4. On next app load, prompt to recover draft (if < 30 min old)
+5. Draft cleared after successful save or user decline
+
+**Recovery Flow:**
+```
+App loads → Check localStorage → Draft found
+  ↓
+Age < 30 min? → Yes → Prompt user to recover
+  ↓
+User accepts → Create snippet with transcript
+  ↓
+Clear draft from storage
+```
+
+### 5. Error Handling & Browser Stability
+
+**Defensive State Guards:**
+- Check recorder state before start/stop/pause/resume
+- Prevent operations on invalid states
+- Log warnings for debugging
+
+**Microphone Interruption:**
+- Detect track ending (device disconnected)
+- Show clear error message
+- Clean up resources gracefully
+
+**Transcript Integrity:**
+- Chunk IDs tracked to prevent duplicate processing
+- Retries don't insert duplicate text
+- Ordering maintained even with out-of-order retries
+
+**Failure Modes:**
+- Network failure → Retry with backoff → Manual retry if needed
+- API error → Same as network failure
+- Browser crash → Draft recovery on reload
+- Tab suspension → Recording state preserved, graceful resume
+
+### 6. Quality and Ordering
+
+**Transcript Stitching:**
+1. Chunks sorted by index (0, 1, 2, ...)
+2. Only `done` chunks with transcripts included
+3. Whitespace normalized (no duplicate spaces)
+4. Sentence spacing cleaned up
+5. **No duplicate text** - processed chunks tracked in Set
+
+**Final Output:**
+```
+Chunk 0: "Hello this is a test."
+Chunk 1: "This is the second chunk."
+Chunk 2: "And here is the final part."
+
+Result: "Hello this is a test. This is the second chunk. And here is the final part."
+```
 
 ## User Interface
 
@@ -84,13 +185,30 @@ The continuous recording panel shows:
 
 Located at: [`src/hooks/useContinuousRecorder.js`](../src/hooks/useContinuousRecorder.js)
 
-**Key Features:**
-- Manages MediaRecorder with 25-second timeslice
-- Tracks array of chunk objects with full state
-- Auto-transcribes chunks in parallel with recording
-- Provides retry functionality for failed chunks
-- Exports full transcript and combined audio Blob
-- Memory-safe: clears Blobs after saving
+**Production-Grade Features:**
+- Sequential transcription queue (no parallel API calls)
+- Exponential backoff retry logic (1s → 2s → 4s → 8s, max 3 retries)
+- Memory-safe blob cleanup after successful transcription
+- Draft auto-save every 10 seconds
+- Defensive state guards for all operations
+- Microphone disconnect detection
+- Duplicate prevention during retries
+
+**Key Internal State:**
+```javascript
+// Transcription queue management
+transcriptionQueueRef      // Array of chunk IDs waiting to transcribe
+isProcessingQueueRef      // Prevents parallel processing
+processedChunkIdsRef      // Set of transcribed chunk IDs (prevents duplicates)
+
+// Retry configuration
+MAX_RETRIES = 3           // Maximum retry attempts
+BASE_RETRY_DELAY = 1000   // 1 second base delay
+MAX_RETRY_DELAY = 8000    // 8 seconds maximum
+
+// Auto-save
+autoSaveIntervalRef       // 10-second interval for draft saves
+```
 
 **API:**
 ```javascript
@@ -102,15 +220,40 @@ const {
   error,
   
   // Controls
-  startRecording,
-  stopRecording,
-  retryChunk,
+  startRecording,    // With defensive guards
+  stopRecording,     // With state validation
+  retryChunk,        // Requeue failed chunk
   
   // Utilities
-  getFullTranscript,
-  getChunkStats,
-  getFinalBlob,
-} = useContinuousRecorder({ chunkDuration: 25 });
+  getFullTranscript, // Deduplicated, ordered stitching
+  getChunkStats,     // Detailed status counts
+  getFinalBlob,      // Combined audio (releases memory-safe)
+} = useContinuousRecorder({ 
+  chunkDuration: 25,
+  autoTranscribe: true,
+  onAutoSave: callback  // Draft auto-save callback
+});
+```
+
+**Transcription Flow:**
+```
+Chunk created → Add to queue
+  ↓
+Queue processor checks if processing
+  ↓
+Take first chunk → Mark transcribing
+  ↓
+Call API → Success? 
+  ↓                ↓
+ Yes              No
+  ↓                ↓
+Mark done     Retry count < MAX?
+Release blob      ↓           ↓
+  ↓              Yes         No
+Remove from queue  ↓          ↓
+  ↓           Wait backoff  Mark failed
+Process next   ↓             Remove from queue
+              Retry API
 ```
 
 ### Component: `ContinuousRecordPanel`
@@ -129,14 +272,15 @@ Located at: [`src/components/ContinuousRecordPanel.jsx`](../src/components/Conti
 ```typescript
 interface AudioChunk {
   id: string;              // "chunk-{index}-{timestamp}"
-  index: number;           // 0-based sequential index
+  index: number;           // 0-based sequential index (for ordering)
   startTime: number;       // Recording start (ms since epoch)
   endTime: number;         // Recording end (ms since epoch)
-  blob: Blob | null;       // Audio data (WebM/Opus)
+  blob: Blob | null;       // Audio data (null after transcription for memory)
   status: 'pending' | 'transcribing' | 'done' | 'failed';
   transcript: string;      // Transcribed text
   confidence: number | null; // 0-1 confidence score
   error: string | null;    // Error message if failed
+  retryCount: number;      // Number of retry attempts (for backoff calculation)
 }
 ```
 
@@ -148,16 +292,33 @@ When saved, includes:
   id: "snippet-...",
   type: "audio",
   duration: 150,           // Total duration in seconds
-  audioBlob: Blob,         // Combined audio from all chunks
-  transcript: "...",       // Stitched full transcript
+  audioBlob: Blob,         // Combined audio from chunks (memory-safe)
+  transcript: "...",       // Full stitched transcript
   chunkMetadata: {         // Debug/stats
     totalChunks: 6,
     successfulChunks: 5,
     failedChunks: 1,
   },
+  recovered: false,        // True if recovered from draft
   // ...standard fields
 }
 ```
+
+### Draft Auto-Save Storage
+
+Stored in `localStorage` while recording:
+```javascript
+{
+  "draftTranscript": "Full transcript text so far...",
+  "draftTimestamp": "1708108800000"  // ms since epoch
+}
+```
+
+**Recovery Logic:**
+- Checked on app load
+- Offered if < 30 minutes old
+- Creates snippet with `recovered: true` flag
+- Cleared after save or user decline
 
 ## Browser Compatibility
 

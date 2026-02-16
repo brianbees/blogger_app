@@ -1,12 +1,40 @@
-# Continuous Recording - Quick Test Checklist
+# Continuous Recording - Production QA Checklist
 
-This checklist helps verify the continuous recording feature works correctly.
+This checklist verifies the production-grade continuous recording implementation with sequential transcription, retry logic, memory management, and auto-save.
 
 ## Prerequisites
 
 - [ ] Dev server is running (`npm run dev`)
 - [ ] Browser open at `https://localhost:5173`
-- [ ] Sign in to Google account (optional, for transcription)
+- [ ] Sign in to Google account (for transcription tests)
+- [ ] Open browser DevTools Console to monitor logs
+
+## Production Features to Verify
+
+### Sequential Transcription
+✅ Chunks processed one at a time  
+✅ No parallel API calls  
+✅ Strict ordering maintained
+
+### Retry Logic
+✅ Exponential backoff (1s → 2s → 4s → 8s)  
+✅ Maximum 3 retries per chunk  
+✅ No duplicate text on retry
+
+### Memory Management
+✅ Blobs released after transcription  
+✅ Memory returns to baseline  
+✅ Long recordings don't leak
+
+### Draft Auto-Save
+✅ Saves every 10 seconds  
+✅ Recoverable after crash  
+✅ Cleared after successful save
+
+### Browser Stability
+✅ Defensive state guards  
+✅ Handles disconnections  
+✅ Clean error recovery
 
 ## Basic Functionality Tests
 
@@ -65,7 +93,81 @@ This checklist helps verify the continuous recording feature works correctly.
 
 ## Error Handling Tests
 
-### 6. Failed Chunk Retry
+### 6. Sequential Transcription Verification
+**Verify chunks are processed one at a time:**
+- [ ] Open browser Console (F12)
+- [ ] Start continuous recording (signed in)
+- [ ] Speak for 60 seconds (creates 2-3 chunks)
+- [ ] Monitor console logs for:
+  - [ ] `[Transcription] Processing chunk N` messages appear **one at a time**
+  - [ ] Each chunk completes before next starts
+  - [ ] No overlapping `Processing chunk` messages
+- [ ] Stop recording
+- [ ] Verify transcript is complete and in order
+
+### 7. Exponential Backoff Retry
+**Simulate API failure to test retry logic:**
+- [ ] Open DevTools Console
+- [ ] Start recording (signed in)
+- [ ] Wait for first chunk (~25s)
+- [ ] Go to DevTools Network tab → Enable "Offline" mode
+- [ ] Wait for second chunk to fail
+- [ ] In Console, verify retry messages:
+  - [ ] `Chunk N attempt 1` failed
+  - [ ] `Retrying chunk N after 1000ms` (1 second)
+  - [ ] `Chunk N attempt 2` failed
+  - [ ] `Retrying chunk N after 2000ms` (2 seconds)
+  - [ ] `Chunk N attempt 3` failed
+  - [ ] `Retrying chunk N after 4000ms` (4 seconds)
+  - [ ] `Chunk N attempt 4` failed
+  - [ ] Chunk marked as `failed` after 4 attempts
+- [ ] Disable "Offline" mode
+- [ ] Click "Retry chunk 2" button
+- [ ] Verify chunk succeeds and transcript updates
+- [ ] Stop and save
+
+### 8. Memory Management Test
+**Verify blobs are released after transcription:**
+- [ ] Open DevTools → Memory tab
+- [ ] Take heap snapshot (baseline)
+- [ ] Start continuous recording (signed in)
+- [ ] Record for 2 minutes (~5 chunks)
+- [ ] Wait for all chunks to transcribe (status: done)
+- [ ] In Console, verify logs show: `blob: null` for completed chunks
+- [ ] Take second heap snapshot
+- [ ] Compare: Blob memory should be minimal (~100KB vs ~2-3MB without cleanup)
+- [ ] Stop and save
+- [ ] Wait 5 seconds
+- [ ] Take third snapshot
+- [ ] Verify memory returns to baseline (±5MB)
+
+### 9. Draft Auto-Save Test
+**Verify auto-save and recovery:**
+- [ ] Clear localStorage (DevTools → Application → Local Storage → Clear)
+- [ ] Start continuous recording (signed in)
+- [ ] Speak for 30 seconds
+- [ ] Wait for first chunk to transcribe
+- [ ] In Console, verify: `[Auto-Save] Saving draft transcript (N chars)`
+- [ ] Check localStorage: `draftTranscript` and `draftTimestamp` present
+- [ ] **Simulate browser crash**: Close all browser tabs (Ctrl+W or close browser)
+- [ ] Reopen browser and app
+- [ ] **Verify recovery prompt appears**: "Found unsaved recording transcript from N minutes ago..."
+- [ ] Preview should match recorded content
+- [ ] Click "OK" to recover
+- [ ] Verify snippet created with transcript
+- [ ] Check localStorage: draft cleared
+
+### 10. Auto-Save Interval Verification
+- [ ] Start recording (signed in)
+- [ ] Open Console
+- [ ] Verify `[Auto-Save] Enabled (every 10 seconds)` message
+- [ ] Wait 10 seconds
+- [ ] Verify `[Auto-Save] Saving draft transcript` appears
+- [ ] Wait another 10 seconds
+- [ ] Verify auto-save happens again
+- [ ] Stop recording
+- [ ] Verify `[Auto-Save] Disabled` message
+- [ ] Verify final auto-save occurs on stop
 **Simulate network error:**
 - [ ] Open browser DevTools (F12)
 - [ ] Go to Network tab
@@ -84,7 +186,40 @@ This checklist helps verify the continuous recording feature works correctly.
 - [ ] Stop and save
 - [ ] Verify full transcript includes both chunks
 
-### 7. Sign-Out Behavior
+### 11. Defensive State Guards
+**Verify state protection:**
+- [ ] Try to start recording twice rapidly
+- [ ] Console should show: `[Recording] Already recording, ignoring start request`
+- [ ] No duplicate recordings or errors
+- [ ] Stop recording
+- [ ] Try to stop again
+- [ ] Console should show: `[Recording] Not recording, ignoring stop request`
+- [ ] No errors thrown
+
+### 12. Microphone Disconnection Handling
+**Test hardware interruption:**
+- [ ] Start recording
+- [ ] Physically disconnect microphone (or switch to different device in OS settings)
+- [ ] Verify app detects disconnection:
+  - [ ] Console logs: `[Recording] Microphone track ended unexpectedly`
+  - [ ] Error message appears: "Microphone connection lost"
+  - [ ] Recording stops cleanly
+  - [ ] Transcript saved (if any chunks completed)
+- [ ] Reconnect microphone
+- [ ] Verify can start new recording
+
+### 13. No Duplicate Text on Retry
+**Verify retry doesn't duplicate transcript:**
+- [ ] Start recording (signed in)
+- [ ] Wait for first chunk to transcribe successfully
+- [ ] Note the transcript text (e.g., "Hello world")
+- [ ] Simulate failure for chunk 2 (offline mode)
+- [ ] Let it fail all retries
+- [ ] Re-enable network
+- [ ] Click "Retry chunk 2"
+- [ ] Verify chunk 2 transcript appears **once only**
+- [ ] Stop recording
+- [ ] Final transcript should have **no duplicate sentences**
 - [ ] Sign out from Cloud Sync
 - [ ] Start continuous recording
 - [ ] Verify recording works (no transcription)
@@ -154,13 +289,36 @@ This checklist helps verify the continuous recording feature works correctly.
 
 ## Acceptance Criteria ✅
 
-All critical tests passed:
+### Core Functionality
 - [ ] Can record 2+ minutes continuously
 - [ ] Transcript appears progressively in real-time
-- [ ] Failed chunks can be retried without data loss
 - [ ] Final note contains full transcript and combined audio
 - [ ] No console errors during normal operation
-- [ ] Memory doesn't grow unbounded
+
+### Production-Grade Requirements
+- [ ] ✅ Sequential transcription (verified in console logs)
+- [ ] ✅ Exponential backoff retry working (1s → 2s → 4s → 8s)
+- [ ] ✅ Memory cleanup after transcription (verified in heap snapshots)
+- [ ] ✅ Draft auto-save every 10 seconds (verified in console)
+- [ ] ✅ Draft recovery after browser crash (tested)
+- [ ] ✅ No duplicate text on retry (verified)
+- [ ] ✅ Defensive state guards prevent errors (tested)
+- [ ] ✅ Microphone disconnection handled gracefully (tested)
+- [ ] ✅ Memory returns to baseline after save (±5MB)
+- [ ] ✅ Long recordings (5-10 min) remain stable
+
+### Robustness Under Failure
+- [ ] ✅ Network failure handled with retry
+- [ ] ✅ Failed chunks don't lose prior text
+- [ ] ✅ Retry UI appears for failed chunks
+- [ ] ✅ Manual retry works correctly
+- [ ] ✅ Transcript ordering stable despite retries
+
+### Performance
+- [ ] UI remains responsive during transcription
+- [ ] No frame drops in waveform visualizer
+- [ ] Auto-save doesn't block recording
+- [ ] Queue processing doesn't block UI
 
 ---
 
