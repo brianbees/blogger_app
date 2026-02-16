@@ -82,9 +82,9 @@ function App() {
     stream,
   } = activeRecorder;
 
-  // For simple recorder
-  const audioBlob = simpleRecorder.audioBlob;
-  const duration = simpleRecorder.duration;
+  // Get audioBlob and duration from appropriate recorder
+  const audioBlob = recordingMode === 'simple' ? simpleRecorder.audioBlob : null;
+  const duration = recordingMode === 'simple' ? simpleRecorder.duration : 0;
 
   useEffect(() => {
     loadSnippets();
@@ -155,9 +155,12 @@ function App() {
         recovered: true, // Flag to indicate this was recovered
       };
 
-      await saveSnippet(snippet);
-      await loadSnippets();
+      // OPTIMISTIC UI: Add to state immediately
+      setSnippets(prev => [snippet, ...prev]);
       setRefreshTrigger(prev => prev + 1);
+      
+      // Save to IndexedDB in background
+      await saveSnippet(snippet);
       
       showToast('Draft transcript recovered!', 'success');
       
@@ -184,6 +187,7 @@ function App() {
 
   useEffect(() => {
     if (audioBlob && !isRecording && audioBlob !== lastSavedBlobRef.current) {
+      console.log('[App] Saving simple recording, audioBlob size:', audioBlob.size);
       handleSaveSnippet();
     }
   }, [audioBlob, isRecording]);
@@ -195,6 +199,7 @@ function App() {
         !continuousRecorder.isRecording && 
         continuousRecorder.chunks.length > 0 &&
         chunksKey !== lastSavedContinuousRef.current) {
+      console.log('[App] Saving continuous recording, chunks:', continuousRecorder.chunks.length);
       lastSavedContinuousRef.current = chunksKey;
       handleSaveContinuousRecording();
     }
@@ -211,6 +216,7 @@ function App() {
   const loadSnippets = async () => {
     try {
       const allSnippets = await getAllSnippets();
+      console.log('[App] 📋 loadSnippets - About to setSnippets, count:', allSnippets.length, 'last ID:', allSnippets[allSnippets.length-1]?.id);
       setSnippets(allSnippets);
       setStorageError(null);
     } catch (err) {
@@ -223,8 +229,12 @@ function App() {
   };
 
   const handleSaveSnippet = async () => {
-    if (!audioBlob || audioBlob === lastSavedBlobRef.current) return;
+    if (!audioBlob || audioBlob === lastSavedBlobRef.current) {
+      console.log('[App] handleSaveSnippet - Early return:', { hasAudioBlob: !!audioBlob, alreadySaved: audioBlob === lastSavedBlobRef.current });
+      return;
+    }
 
+    console.log('[App] handleSaveSnippet - Starting save...');
     setIsSaving(true);
     setStorageError(null);
     lastSavedBlobRef.current = audioBlob;
@@ -242,11 +252,16 @@ function App() {
         syncStatus: 'local',
       };
 
-      await saveSnippet(snippet);
-      
-      await loadSnippets();
+      // OPTIMISTIC UI: Add to state immediately
+      console.log('[App] ➕ Adding snippet optimistically, ID:', snippet.id);
+      setSnippets(prev => [snippet, ...prev]);
       setRefreshTrigger(prev => prev + 1);
+
+      // Save to IndexedDB in background
+      await saveSnippet(snippet);
+      console.log('[App] handleSaveSnippet - Save complete!');
     } catch (err) {
+      console.error('[App] handleSaveSnippet - Error:', err);
       if (err instanceof StorageError) {
         setStorageError(err.message);
         if (err.code === 'QUOTA_EXCEEDED') {
@@ -261,8 +276,12 @@ function App() {
   };
 
   const handleSaveContinuousRecording = async () => {
-    if (isSaving || continuousRecorder.chunks.length === 0) return;
+    if (isSaving || continuousRecorder.chunks.length === 0) {
+      console.log('[App] handleSaveContinuousRecording - Early return:', { isSaving, chunksLength: continuousRecorder.chunks.length });
+      return;
+    }
 
+    console.log('[App] handleSaveContinuousRecording - Starting save...');
     setIsSaving(true);
     setStorageError(null);
 
@@ -274,6 +293,8 @@ function App() {
       if (!finalBlob) {
         throw new Error('No audio data to save');
       }
+
+      console.log('[App] Created final blob, size:', finalBlob.size, 'transcript length:', fullTranscript?.length || 0);
 
       // Calculate total duration from chunks
       const totalDuration = Math.floor(
@@ -298,15 +319,20 @@ function App() {
         },
       };
 
-      await saveSnippet(snippet);
-      
-      await loadSnippets();
+      // OPTIMISTIC UI: Add to state immediately
+      console.log('[App] ➕ Adding snippet optimistically, ID:', snippet.id);
+      setSnippets(prev => [snippet, ...prev]);
       setRefreshTrigger(prev => prev + 1);
+
+      // Save to IndexedDB in background
+      await saveSnippet(snippet);
       
       // Clear draft transcript after successful save
       localStorage.removeItem('draftTranscript');
       localStorage.removeItem('draftTimestamp');
       draftTranscriptRef.current = null;
+      
+      console.log('[App] handleSaveContinuousRecording - Save complete!');
       
       // Show success message
       const stats = continuousRecorder.getChunkStats();
@@ -316,6 +342,7 @@ function App() {
         showToast('Recording saved with transcript!', 'success');
       }
     } catch (err) {
+      console.error('[App] handleSaveContinuousRecording - Error:', err);
       if (err instanceof StorageError) {
         setStorageError(err.message);
         if (err.code === 'QUOTA_EXCEEDED') {
@@ -378,11 +405,13 @@ function App() {
         syncStatus: 'local',
       };
       
-      await saveSnippet(snippet);
-      
-      await loadSnippets();
+      // OPTIMISTIC UI: Add to state immediately
+      setSnippets(prev => [snippet, ...prev]);
       setRefreshTrigger(prev => prev + 1);
       setSelectedImageFile(null);
+      
+      // Save to IndexedDB in background
+      await saveSnippet(snippet);
       // Don't show success toast, just close the sheet
     } catch (err) {
       console.error('Failed to save image:', err);
@@ -431,9 +460,12 @@ function App() {
 
   const handleDeleteSnippet = async (id) => {
     try {
-      await deleteSnippet(id);
-      await loadSnippets();
+      // OPTIMISTIC UI: Remove from state immediately
+      setSnippets(prev => prev.filter(s => s.id !== id));
       setRefreshTrigger(prev => prev + 1);
+      
+      // Delete from IndexedDB in background
+      await deleteSnippet(id);
     } catch (err) {
       if (err instanceof StorageError) {
         setStorageError(err.message);
@@ -452,25 +484,27 @@ function App() {
         return;
       }
 
+      let updatedSnippet;
       if (file) {
         // Add/replace image
-        const updatedSnippet = {
+        updatedSnippet = {
           ...snippet,
           mediaBlob: file,
           caption: snippet.caption || null,
         };
-        await saveSnippet(updatedSnippet);
       } else {
         // Remove image
-        const updatedSnippet = { ...snippet };
+        updatedSnippet = { ...snippet };
         delete updatedSnippet.mediaBlob;
         delete updatedSnippet.caption;
-        await saveSnippet(updatedSnippet);
       }
 
-      // Reload snippets
-      await loadSnippets();
+      // OPTIMISTIC UI: Update state immediately
+      setSnippets(prev => prev.map(s => s.id === snippetId ? updatedSnippet : s));
       setRefreshTrigger(prev => prev + 1);
+
+      // Save to IndexedDB in background
+      await saveSnippet(updatedSnippet);
     } catch (err) {
       console.error('Failed to attach image:', err);
       showToast('Failed to attach image', 'error');
@@ -584,9 +618,13 @@ function App() {
         publishedAt: Date.now(),
         blogPostUrl: result.url,
       };
-      await saveSnippet(updatedSnippet);
-      await loadSnippets();
+      
+      // OPTIMISTIC UI: Update state immediately
+      setSnippets(prev => prev.map(s => s.id === publishSnippet.id ? updatedSnippet : s));
       setRefreshTrigger(prev => prev + 1);
+      
+      // Save to IndexedDB in background
+      await saveSnippet(updatedSnippet);
     } catch (err) {
       console.error('[App] Failed to mark snippet as published:', err);
     }

@@ -58,7 +58,10 @@ export default function RecordPanel({ isRecording, timer, isSaving, error, isSup
           )}
           
           <button
-            onClick={onStopRecording}
+            onClick={() => {
+              console.log('[RecordPanel] 🛑 STOP BUTTON CLICKED');
+              onStopRecording();
+            }}
             className="w-full rounded-full bg-red-600 hover:bg-red-700 text-white py-3.5 text-base font-semibold active:scale-[0.98] transition-all shadow-lg min-h-[48px]"
             aria-label="Stop recording"
           >

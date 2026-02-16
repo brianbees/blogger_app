@@ -60,6 +60,11 @@ export function useMediaRecorder() {
 
   const startRecording = async () => {
     try {
+      // Reset state for new recording
+      setAudioBlob(null);
+      setBlobUrl(null);
+      setDuration(0);
+      
       // Get selected microphone from localStorage (if any)
       const selectedMicId = localStorage.getItem('selectedMicrophoneId');
       
@@ -111,9 +116,12 @@ export function useMediaRecorder() {
 
       // Handle recording stop
       mediaRecorder.onstop = () => {
+        console.log('[useMediaRecorder] 📼 ONSTOP FIRED');
         const blob = new Blob(chunksRef.current, { type: mimeTypeRef.current || 'audio/webm' });
         const url = URL.createObjectURL(blob);
         const finalDuration = Math.floor((Date.now() - startTimeRef.current) / 1000);
+        
+        console.log('[useMediaRecorder] 📼 Created blob:', { size: blob.size, duration: finalDuration });
         
         setDuration(finalDuration);
         setAudioBlob(blob);
@@ -144,7 +152,9 @@ export function useMediaRecorder() {
   };
 
   const stopRecording = () => {
+    console.log('[useMediaRecorder] 🟥 stopRecording called, isRecording:', isRecording);
     if (mediaRecorderRef.current && isRecording) {
+      console.log('[useMediaRecorder] 🟥 Calling mediaRecorder.stop()');
       mediaRecorderRef.current.stop();
       setIsRecording(false);
 

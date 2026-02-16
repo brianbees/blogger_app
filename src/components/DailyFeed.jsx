@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import SnippetCard from './SnippetCard';
 
 export default function DailyFeed({ snippets, refreshTrigger, onDeleteSnippet, onImageClick, onPublishClick, onTranscriptUpdate, onAttachImage, isSignedIn }) {
+  console.log('[DailyFeed] 🎨 Rendering with snippets.length:', snippets.length, 'last ID:', snippets[snippets.length-1]?.id, 'refreshTrigger:', refreshTrigger);
   const [groupedSnippets, setGroupedSnippets] = useState({});
 
   useEffect(() => {
