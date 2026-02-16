@@ -54,9 +54,10 @@ export function useContinuousRecorder(options = {}) {
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [timer, setTimer] = useState(0);
-  const [chunks, setChunks] = useState(/** @type {AudioChunk[]} */ ([]));
+  const [chunks, setChunks] = useState([]);
   const [error, setError] = useState(null);
   const [isSupported, setIsSupported] = useState(true);
+  const chunksRef = useRef([]); // Authoritative buffer for all audio data
 
   // Refs for recording state
   const mediaRecorderRef = useRef(null);
@@ -371,7 +372,7 @@ export function useContinuousRecorder(options = {}) {
 
     try {
       isStoppingRef.current = false;
-      
+
       // Get selected microphone from localStorage (if any)
       const selectedMicId = localStorage.getItem('selectedMicrophoneId');
 
@@ -392,6 +393,13 @@ export function useContinuousRecorder(options = {}) {
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = stream;
+
+      // Log audio track info on start
+      const tracks = stream.getAudioTracks();
+      console.log('[Recording] Stream audioTracks:', tracks.length);
+      tracks.forEach((track, i) => {
+        console.log(`[Recording] Track[${i}] readyState:`, track.readyState, 'enabled:', track.enabled, 'muted:', track.muted, 'id:', track.id);
+      });
 
       // Handle microphone track ending (e.g., device disconnected)
       stream.getTracks().forEach(track => {
@@ -422,22 +430,27 @@ export function useContinuousRecorder(options = {}) {
       mediaRecorderRef.current = mediaRecorder;
       chunkIndexRef.current = 0;
       setChunks([]);
-      
+      chunksRef.current = [];
+
       // Reset transcription queue state
       transcriptionQueueRef.current = [];
       isProcessingQueueRef.current = false;
       processedChunkIdsRef.current.clear();
 
+      // Log when MediaRecorder starts
+      mediaRecorder.onstart = () => {
+        console.log('[Recording] MediaRecorder onstart event fired');
+      };
+
       // Handle data available - fires for each chunk
       mediaRecorder.ondataavailable = async (event) => {
-        if (event.data.size > 0 && !isStoppingRef.current) {
+        console.log('[Recording] ondataavailable event, event.data.size:', event.data.size);
+        if (event.data && event.data.size > 0) {
+          chunksRef.current.push(event.data);
+          // Optionally, update state for UI (not used for final blob)
           const chunkEndTime = Date.now();
           const chunkIndex = chunkIndexRef.current;
           const chunkStartTime = currentChunkStartRef.current || startTimeRef.current;
-
-          console.log(`[Recording] Chunk ${chunkIndex} created (${event.data.size} bytes)`);
-
-          // Create chunk object
           const newChunk = {
             id: `chunk-${chunkIndex}-${chunkEndTime}`,
             index: chunkIndex,
@@ -450,17 +463,14 @@ export function useContinuousRecorder(options = {}) {
             error: null,
             retryCount: 0,
           };
-
-          // Add chunk to state
-          setChunks(prev => [...prev, newChunk]);
-
-          // Add to transcription queue (sequential processing)
+          setChunks(prev => {
+            const arr = [...prev, newChunk];
+            console.log('[Recording] APPEND CHUNK, new chunks.length:', arr.length, 'chunksRef.current.length:', chunksRef.current.length, 'chunk.size:', event.data.size);
+            return arr;
+          });
           if (autoTranscribe) {
-            // Use setTimeout to ensure state is updated first
             setTimeout(() => enqueueChunkForTranscription(newChunk.id), 0);
           }
-
-          // Prepare for next chunk
           chunkIndexRef.current++;
           currentChunkStartRef.current = chunkEndTime;
         }
@@ -468,8 +478,11 @@ export function useContinuousRecorder(options = {}) {
 
       // Handle recording stop
       mediaRecorder.onstop = () => {
-        console.log('[Recording] MediaRecorder stopped');
-        
+        let totalBytes = 0;
+        if (chunks && Array.isArray(chunks)) {
+          totalBytes = chunks.reduce((sum, c) => sum + (c.blob && c.blob.size ? c.blob.size : 0), 0);
+        }
+        console.log('[Recording] MediaRecorder stopped, final chunks.length:', chunks.length, 'totalBytes:', totalBytes);
         // Stop all tracks
         if (streamRef.current) {
           streamRef.current.getTracks().forEach(track => track.stop());
@@ -539,71 +552,45 @@ export function useContinuousRecorder(options = {}) {
   /**
    * Stop continuous recording with defensive state guards
    */
-  const stopRecording = useCallback(() => {
-    // Defensive guard: prevent stopping if not recording
-    if (!isRecording) {
-      console.warn('[Recording] Not recording, ignoring stop request');
+  const stopRecording = useCallback(async () => {
+    const mr = mediaRecorderRef.current;
+    if (!mr) return;
+
+    // If already inactive, finalize immediately
+    if (mr.state === 'inactive') {
+      finalizeFromChunks();
       return;
     }
 
-    console.log('[Continuous] 🛑 STOP RECORDING CALLED, chunks.length:', chunks.length);
-
-    // Defensive guard: check recorder state before stopping
-    if (mediaRecorderRef.current) {
-      const state = mediaRecorderRef.current.state;
-      
-      if (state === 'recording' || state === 'paused') {
-        console.log(`[Recording] Stopping recorder (state: ${state})`);
-        isStoppingRef.current = true;
-        mediaRecorderRef.current.stop();
-      } else {
-        console.warn(`[Recording] MediaRecorder in unexpected state: ${state}`);
-      }
-    }
-
-    setIsRecording(false);
-    setIsPaused(false);
-
-    // Clear timer
-    if (timerIntervalRef.current) {
-      clearInterval(timerIntervalRef.current);
-      timerIntervalRef.current = null;
-    }
-
-    // Clear auto-save interval
-    if (autoSaveIntervalRef.current) {
-      clearInterval(autoSaveIntervalRef.current);
-      autoSaveIntervalRef.current = null;
-      console.log('[Auto-Save] Disabled');
-    }
-
-    // Perform final auto-save
-    if (onAutoSave) {
-      const transcript = getFullTranscript();
-      console.log('[Continuous] 📞 Calling onAutoSave callback, transcript length:', transcript.length, 'chunks:', chunks.length);
-      performAutoSave();
-    }
-
-    // Notify parent that recording is complete with all data
-    if (onRecordingComplete && chunks.length > 0) {
-      const finalBlob = getFinalBlob();
-      const fullTranscript = getFullTranscript();
-      const recordingData = {
-        chunks: chunks,
-        blob: finalBlob,
-        transcript: fullTranscript,
-        duration: timer,
-        chunkMetadata: {
-          totalChunks: chunks.length,
-          successfulChunks: chunks.filter(c => c.status === 'done').length,
-          failedChunks: chunks.filter(c => c.status === 'failed').length,
-        },
+    // Wait for onstop
+    const stopped = new Promise(resolve => {
+      const prev = mr.onstop;
+      mr.onstop = (ev) => {
+        try { prev?.(ev); } finally { resolve(); }
       };
-      console.log('[Continuous] 📣 Calling onRecordingComplete with blob size:', finalBlob?.size, 'transcript length:', fullTranscript?.length);
-      // Use setTimeout to ensure state updates have propagated
-      setTimeout(() => onRecordingComplete(recordingData), 0);
+    });
+
+    try { mr.requestData(); } catch (_) {}
+    mr.stop();
+    await stopped;
+    finalizeFromChunks();
+  }, [onAutoSave, performAutoSave, getFullTranscript, timer, onRecordingComplete]);
+
+  function finalizeFromChunks() {
+    const parts = chunksRef.current;
+    const totalBytes = parts.reduce((s, b) => s + (b?.size || 0), 0);
+    if (!parts.length || totalBytes === 0) {
+      console.warn('[Recording] No audio captured; skipping onRecordingComplete');
+      return null;
     }
-  }, [isRecording, onAutoSave, performAutoSave, chunks, getFullTranscript, getFinalBlob, timer, onRecordingComplete]);
+    const mime = mediaRecorderRef.current?.mimeType || 'audio/webm';
+    const blob = new Blob(parts, { type: mime });
+    if (onRecordingComplete) {
+      onRecordingComplete(blob);
+    }
+    chunksRef.current = [];
+    return blob;
+  }
 
   /**
    * Pause recording (if supported) with defensive guards

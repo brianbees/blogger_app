@@ -15,7 +15,7 @@ const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
 
 // Debug logging for production
 // Do not log secrets or lengths. Log presence only.
-console.log('Google Auth Config:', {
+console.log('[Auth] Google Auth Config', {
   hasClientId: !!GOOGLE_CLIENT_ID,
   hasApiKey: !!GOOGLE_API_KEY,
 });
@@ -332,15 +332,12 @@ async function validateToken(token) {
  * Initialize all Google services
  */
 export async function initGoogleServices() {
-  console.log('initGoogleServices: Checking credentials...', {
-    GOOGLE_CLIENT_ID,
-    GOOGLE_API_KEY,
+  console.log('[Auth] Checking credentials', {
     hasClientId: !!GOOGLE_CLIENT_ID,
     hasApiKey: !!GOOGLE_API_KEY
   });
-  
   if (!GOOGLE_CLIENT_ID || !GOOGLE_API_KEY) {
-    const error = `Google API credentials not configured. ClientID: ${!!GOOGLE_CLIENT_ID}, APIKey: ${!!GOOGLE_API_KEY}`;
+    const error = '[Auth] Google API credentials not configured.';
     console.error(error);
     throw new Error(error);
   }
