@@ -246,25 +246,10 @@ function App() {
     }
   }, [audioBlob, isRecording]);
 
-  // Fallback: Handle continuous recording completion if callback wasn't triggered
-  // (The primary flow is now through onRecordingComplete callback)
-  useEffect(() => {
-    console.log('[App] 🔍 Continuous save useEffect fired:', {
-      recordingMode,
-      isRecording: continuousRecorder.isRecording,
-      chunksLength: continuousRecorder.chunks.length,
-    });
-    
-    const chunksKey = continuousRecorder.chunks.map(c => c.id).join('-');
-    if (recordingMode === 'continuous' && 
-        !continuousRecorder.isRecording && 
-        continuousRecorder.chunks.length > 0 &&
-        chunksKey !== lastSavedContinuousRef.current) {
-      console.log('[App] ⏰ Fallback: Triggering handleSaveContinuousRecording via useEffect');
-      lastSavedContinuousRef.current = chunksKey;
-      handleSaveContinuousRecording();
-    }
-  }, [recordingMode, continuousRecorder.isRecording, continuousRecorder.chunks.length, handleSaveContinuousRecording]);
+  // Note: continuous recording completion is handled via direct callback
+  // (handleContinuousRecordingComplete). A fallback useEffect is added
+  // below after the continuous save handlers to avoid TDZ when the
+  // handler is declared later in the file.
 
   const showToast = (message, type = 'error') => {
     setToast({ message, type });
@@ -335,6 +320,26 @@ function App() {
       setIsSaving(false);
     }
   };
+
+    // Fallback: Handle continuous recording completion if callback wasn't triggered
+    // (The primary flow is through onRecordingComplete callback)
+    useEffect(() => {
+      console.log('[App] 🔍 Continuous save fallback useEffect fired:', {
+        recordingMode,
+        isRecording: continuousRecorder.isRecording,
+        chunksLength: continuousRecorder.chunks.length,
+      });
+
+      const chunksKey = continuousRecorder.chunks.map(c => c.id).join('-');
+      if (recordingMode === 'continuous' &&
+          !continuousRecorder.isRecording &&
+          continuousRecorder.chunks.length > 0 &&
+          chunksKey !== lastSavedContinuousRef.current) {
+        console.log('[App] ⏰ Fallback: Triggering handleSaveContinuousRecording via useEffect');
+        lastSavedContinuousRef.current = chunksKey;
+        handleSaveContinuousRecording();
+      }
+    }, [recordingMode, continuousRecorder.isRecording, continuousRecorder.chunks.length, handleSaveContinuousRecording]);
 
   const handleSaveContinuousRecording = async () => {
     if (isSaving || continuousRecorder.chunks.length === 0) {
