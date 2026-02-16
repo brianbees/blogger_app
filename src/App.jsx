@@ -38,6 +38,7 @@ function App() {
   const [selectedBlogUrl, setSelectedBlogUrl] = useState(null);
   const [isMicSelectorOpen, setIsMicSelectorOpen] = useState(false);
   const lastSavedBlobRef = useRef(null);
+  const lastSavedContinuousRef = useRef(null); // Track continuous recordings
   const draftTranscriptRef = useRef(null); // Store draft transcript for recovery
   
   // Recording mode: 'simple' or 'continuous'
@@ -185,14 +186,19 @@ function App() {
     if (audioBlob && !isRecording && audioBlob !== lastSavedBlobRef.current) {
       handleSaveSnippet();
     }
-  }, [audioBlob, isRecording, handleSaveSnippet]);
+  }, [audioBlob, isRecording]);
 
   // Handle continuous recording completion
   useEffect(() => {
-    if (recordingMode === 'continuous' && !continuousRecorder.isRecording && continuousRecorder.chunks.length > 0) {
+    const chunksKey = continuousRecorder.chunks.map(c => c.id).join('-');
+    if (recordingMode === 'continuous' && 
+        !continuousRecorder.isRecording && 
+        continuousRecorder.chunks.length > 0 &&
+        chunksKey !== lastSavedContinuousRef.current) {
+      lastSavedContinuousRef.current = chunksKey;
       handleSaveContinuousRecording();
     }
-  }, [recordingMode, continuousRecorder.isRecording, continuousRecorder.chunks.length, handleSaveContinuousRecording]);
+  }, [recordingMode, continuousRecorder.isRecording, continuousRecorder.chunks.length]);
 
   const showToast = (message, type = 'error') => {
     setToast({ message, type });
@@ -216,7 +222,7 @@ function App() {
     }
   };
 
-  const handleSaveSnippet = useCallback(async () => {
+  const handleSaveSnippet = async () => {
     if (!audioBlob || audioBlob === lastSavedBlobRef.current) return;
 
     setIsSaving(true);
@@ -252,9 +258,9 @@ function App() {
     } finally {
       setIsSaving(false);
     }
-  }, [audioBlob, duration]);
+  };
 
-  const handleSaveContinuousRecording = useCallback(async () => {
+  const handleSaveContinuousRecording = async () => {
     if (isSaving || continuousRecorder.chunks.length === 0) return;
 
     setIsSaving(true);
@@ -321,7 +327,7 @@ function App() {
     } finally {
       setIsSaving(false);
     }
-  }, [isSaving, continuousRecorder, timer]);
+  };
 
   const handleToggleRecordingMode = () => {
     if (isRecording) {
