@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Snippet Data Viewer</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1e1e1e; color: #d4d4d4; }
+        textarea { width: 100%; height: 200px; font-family: monospace; background: #252526; color: #d4d4d4; border: 1px solid #3e3e42; padding: 10px; }
+        button { padding: 10px 20px; margin: 10px 5px; background: #0e639c; color: white; border: none; cursor: pointer; }
+        button:hover { background: #1177bb; }
+        pre { background: #252526; padding: 15px; border: 1px solid #3e3e42; overflow-x: auto; }
+        .error { color: #f48771; }
+        .success { color: #4ec9b0; }
+        .info { color: #dcdcaa; }
+        h2 { color: #4ec9b0; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Voice Journal Debug Tool</h1>
+    <p>Paste your exported JSON data below to inspect individual recordings:</p>
+    
+    <textarea id="jsonInput" placeholder="Paste your exported JSON here..."></textarea>
+    <br>
+    <button onclick="analyze()">Analyze Data</button>
+    <button onclick="document.getElementById('jsonInput').value = ''">Clear</button>
+    
+    <div id="output"></div>
+    
+    <script>
+        function analyze() {
+            const json = document.getElementById('jsonInput').value;
+            const output = document.getElementById('output');
+            
+            try {
+                const data = JSON.parse(json);
+                
+                if (!data.snippets || !Array.isArray(data.snippets)) {
+                    output.innerHTML = '<p class="error">❌ Invalid data format. Expected {snippets: [...]}</p>';
+                    return;
+                }
+                
+                let html = `<h2>📊 Analysis Results</h2>`;
+                html += `<p class="info">Total snippets: ${data.snippets.length}</p>`;
+                
+                // Find audio snippets
+                const audioSnippets = data.snippets.filter(s => s.audioBlob || s.type === 'audio');
+                html += `<p class="info">Audio recordings: ${audioSnippets.length}</p>`;
+                
+                // Check transcription status
+                const withTranscript = audioSnippets.filter(s => s.transcript);
+                const withoutTranscript = audioSnippets.filter(s => !s.transcript);
+                
+                html += `<p class="success">✅ Transcribed: ${withTranscript.length}</p>`;
+                html += `<p class="error">❌ Not transcribed: ${withoutTranscript.length}</p>`;
+                
+                // Show details of recordings without transcript
+                if (withoutTranscript.length > 0) {
+                    html += `<h2>🔎 Recordings Without Transcript</h2>`;
+                    withoutTranscript.forEach(snippet => {
+                        html += `<pre>`;
+                        html += `ID: ${snippet.id}\n`;
+                        html += `Created: ${new Date(snippet.createdAt).toLocaleString()}\n`;
+                        html += `Duration: ${snippet.duration}s\n`;
+                        html += `Has audio blob: ${!!snippet.audioBlob}\n`;
+                        html += `Transcript: ${snippet.transcript || 'null'}\n`;
+                        html += `Sync status: ${snippet.syncStatus}\n`;
+                        html += `</pre>`;
+                    });
+                }
+                
+                // Show recent transcribed recordings
+                if (withTranscript.length > 0) {
+                    html += `<h2>✅ Recent Transcribed Recordings</h2>`;
+                    withTranscript.slice(-3).reverse().forEach(snippet => {
+                        html += `<pre>`;
+                        html += `ID: ${snippet.id}\n`;
+                        html += `Created: ${new Date(snippet.createdAt).toLocaleString()}\n`;
+                        html += `Duration: ${snippet.duration}s\n`;
+                        html += `Transcript length: ${snippet.transcript?.length || 0} chars\n`;
+                        html += `Transcript preview: ${snippet.transcript?.substring(0, 100)}...\n`;
+                        html += `</pre>`;
+                    });
+                }
+                
+                output.innerHTML = html;
+                
+            } catch (e) {
+                output.innerHTML = `<p class="error">❌ Error parsing JSON: ${e.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

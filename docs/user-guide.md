@@ -250,7 +250,7 @@ When installed as PWA:
 
 ### Best Practices
 
-- **Keep recordings short**: Easier to transcribe and publish (recommended: under 2 minutes)
+- **Keep recordings short**: Auto-transcription works best for recordings **under 30 seconds** (Google API limit)
 - **Speak clearly**: Better transcription quality
 - **Add captions to images**: Makes blog posts more meaningful
 - **Export regularly**: Keep backups of important journal entries

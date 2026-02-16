@@ -61,17 +61,27 @@ export default function SnippetCard({ snippet, onDelete, onImageClick, onPublish
           isSignedIn
         });
         setIsTranscribing(true);
+        
+        // Safety timeout: reset after 60 seconds regardless of outcome
+        const timeoutId = setTimeout(() => {
+          console.warn('[SnippetCard] Transcription timeout - resetting state');
+          setIsTranscribing(false);
+        }, 60000);
+        
         try {
           const result = await transcribeAudio(snippet.audioBlob);
+          clearTimeout(timeoutId);
           console.log('[SnippetCard] ✓ TRANSCRIPTION COMPLETE:', {
             id: snippet.id,
             transcriptLength: result.transcript?.length,
             transcriptPreview: result.transcript?.substring(0, 100)
           });
           if (onTranscriptUpdate) {
-            onTranscriptUpdate(snippet.id, result.transcript);
+            await onTranscriptUpdate(snippet.id, result.transcript);
           }
+          // Will be reset by the useEffect watching snippet.transcript
         } catch (error) {
+          clearTimeout(timeoutId);
           console.error('[SnippetCard] ❌ AUTO-TRANSCRIPTION ERROR:', error);
           setIsTranscribing(false);
         }
@@ -211,18 +221,26 @@ export default function SnippetCard({ snippet, onDelete, onImageClick, onPublish
     if (!snippet.audioBlob || isTranscribing) return;
 
     setIsTranscribing(true);
+    
+    // Safety timeout
+    const timeoutId = setTimeout(() => {
+      console.warn('[SnippetCard] Manual transcription timeout');
+      setIsTranscribing(false);
+    }, 60000);
+    
     try {
       const result = await transcribeAudio(snippet.audioBlob);
+      clearTimeout(timeoutId);
       if (onTranscriptUpdate) {
-        onTranscriptUpdate(snippet.id, result.transcript);
+        await onTranscriptUpdate(snippet.id, result.transcript);
       }
-      // Let the parent update the snippet, which will cause a re-render
+      // Will be reset by the useEffect watching snippet.transcript
     } catch (error) {
+      clearTimeout(timeoutId);
       console.error('Transcription error:', error);
       alert(`Transcription failed: ${error.message}`);
       setIsTranscribing(false);
     }
-    // Don't set isTranscribing to false here - let it show until the update completes
   };
 
   // Render Image Snippet

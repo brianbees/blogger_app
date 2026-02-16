@@ -12,5 +12,14 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    <!-- Mobile debugging console - add ?debug=1 to URL to enable -->
+    <script>
+      if (window.location.search.includes('debug=1') || window.location.hostname === 'localhost') {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/eruda';
+        document.body.appendChild(script);
+        script.onload = () => eruda.init();
+      }
+    </script>
   </body>
 </html>
