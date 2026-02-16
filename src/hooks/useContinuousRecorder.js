@@ -312,21 +312,6 @@ export function useContinuousRecorder(options = {}) {
   }, [chunks, enqueueChunkForTranscription]);
 
   /**
-   * Auto-save draft transcript periodically
-   * Prevents data loss if browser closes mid-recording
-   */
-  const performAutoSave = useCallback(() => {
-    if (!onAutoSave) return;
-
-    const transcript = getFullTranscript();
-    console.log(`[Continuous] 💾 performAutoSave - transcript length: ${transcript.length}, chunks: ${chunks.length}`);
-    if (transcript.length > 0) {
-      console.log(`[Auto-Save] Saving draft transcript (${transcript.length} chars)`);
-      onAutoSave(transcript, chunks);
-    }
-  }, [onAutoSave, chunks, getFullTranscript]);
-
-  /**
    * Get the full stitched transcript with duplicate prevention
    * Ensures stable ordering even with retries
    */
@@ -352,6 +337,21 @@ export function useContinuousRecorder(options = {}) {
     
     return fullText;
   }, [chunks]);
+
+  /**
+   * Auto-save draft transcript periodically
+   * Prevents data loss if browser closes mid-recording
+   */
+  const performAutoSave = useCallback(() => {
+    if (!onAutoSave) return;
+
+    const transcript = getFullTranscript();
+    console.log(`[Continuous] 💾 performAutoSave - transcript length: ${transcript.length}, chunks: ${chunks.length}`);
+    if (transcript.length > 0) {
+      console.log(`[Auto-Save] Saving draft transcript (${transcript.length} chars)`);
+      onAutoSave(transcript, chunks);
+    }
+  }, [onAutoSave, chunks, getFullTranscript]);
 
   /**
    * Start continuous recording with defensive state guards
@@ -522,6 +522,21 @@ export function useContinuousRecorder(options = {}) {
   };
 
   /**
+   * Get final blob by combining all chunks
+   */
+  const getFinalBlob = useCallback(() => {
+    const sortedChunks = [...chunks].sort((a, b) => a.index - b.index);
+    const blobs = sortedChunks.map(chunk => chunk.blob).filter(Boolean);
+    
+    if (blobs.length === 0) {
+      console.warn('[Blob] No blobs available (may have been released for memory)');
+      return null;
+    }
+    
+    return new Blob(blobs, { type: mimeTypeRef.current || 'audio/webm' });
+  }, [chunks]);
+
+  /**
    * Stop continuous recording with defensive state guards
    */
   const stopRecording = useCallback(() => {
@@ -665,22 +680,6 @@ export function useContinuousRecorder(options = {}) {
     return { total, done, pending, transcribing, failed };
   }, [chunks]);
 
-  /**
-   * Get the final recording blob (all chunks combined)
-   * Note: Blobs are released after transcription for memory efficiency
-   * Only chunks that still have blobs will be included
-   */
-  const getFinalBlob = useCallback(() => {
-    const sortedChunks = [...chunks].sort((a, b) => a.index - b.index);
-    const blobs = sortedChunks.map(chunk => chunk.blob).filter(Boolean);
-    
-    if (blobs.length === 0) {
-      console.warn('[Blob] No blobs available (may have been released for memory)');
-      return null;
-    }
-    
-    return new Blob(blobs, { type: mimeTypeRef.current || 'audio/webm' });
-  }, [chunks]);
 
   // Cleanup on unmount - ensures all resources are released
   useEffect(() => {
