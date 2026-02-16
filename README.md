@@ -42,14 +42,17 @@ Cloud features (transcription, publishing) require Google Cloud credentials:
 3. Create OAuth 2.0 Client ID and API Key
 4. Copy `.env.example` to `.env` and add credentials
 
-See **[Deployment Guide](docs/DEPLOYMENT.md)** for detailed setup instructions.
+See **[Deployment Guide](docs/deployment.md)** for detailed setup instructions.
 
 ## Documentation
 
-- **[User Guide](docs/USER-GUIDE.md)** - How to use all features
-- **[Deployment Guide](docs/DEPLOYMENT.md)** - Production deployment and Google Cloud setup
-- **[Technical Docs](docs/TECHNICAL.md)** - Architecture, storage schema, API integration
-- **[Stage 3 Dev Notes](docs/STAGE3-DEV-NOTES.md)** - Cloud integration implementation details
+**→ [Documentation Index](docs/README.md)** - Complete documentation hub
+
+Quick links:
+- **[User Guide](docs/user-guide.md)** - How to use all features
+- **[Deployment Guide](docs/deployment.md)** - Production deployment and Google Cloud setup
+- **[Technical Docs](docs/technical.md)** - Architecture, storage schema, API integration
+- **[Stage 3 Dev Notes](docs/stage-3-dev-notes.md)** - Cloud integration implementation details
 
 ## Tech Stack
 
@@ -70,7 +73,7 @@ npm run preview  # Preview production build
 
 ## Contributing
 
-Contributions welcome! Please read the [Technical Documentation](docs/TECHNICAL.md) first.
+Contributions welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to get started, coding standards, and how to submit pull requests.
 
 ## License
 

@@ -306,4 +306,4 @@ Currently, all interactions are tap/click-based. Keyboard shortcuts may be added
 
 - **Issues**: Report bugs on GitHub: [brianbees/blogger_app](https://github.com/brianbees/blogger_app)
 - **Documentation**: Check `docs/` folder for technical details
-- **Google Cloud**: Refer to [DEPLOYMENT.md](DEPLOYMENT.md) for setup help
+- **Google Cloud**: Refer to [deployment.md](deployment.md) for setup help
