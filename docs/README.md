@@ -31,6 +31,14 @@ How continuous recording works: auto-chunking, progressive transcription, error 
 **→ [Stage 3 Dev Notes](stage-3-dev-notes.md)**  
 Implementation details for Google OAuth2, Speech-to-Text transcription, Drive uploads, and Blogger API publishing.
 
+### 🗺️ Planning & Roadmap
+
+**→ [Product Roadmap](../ROADMAP.md)**  
+Complete development roadmap: UX fixes, feature development, and enhancements with timeline and priorities.
+
+**→ [UX Improvements TODO](UX-IMPROVEMENTS-TODO.md)**  
+Prioritized UX issues from mobile user flow review. Critical fixes for recording→publishing flow.
+
 ## Additional Resources
 
 - **[Recent Updates](notes/recent-updates.md)** - Latest changes and improvements (February 2026)

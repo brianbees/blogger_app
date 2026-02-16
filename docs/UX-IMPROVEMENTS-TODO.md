@@ -298,3 +298,13 @@
 
 **Last Updated:** February 16, 2026  
 **Reviewed By:** Senior Product Designer + Frontend UX Engineer
+
+---
+
+## 🔗 Related Resources
+
+This document focuses specifically on UX friction in the core recording→publishing flow. For the complete product roadmap including feature development and enhancements, see:
+
+- **[ROADMAP.md](../ROADMAP.md)** - Unified product roadmap (includes these UX fixes in Sprint 1-3)
+- **[technical.md](technical.md)** - Technical architecture and feature backlog
+- **[stage-3-dev-notes.md](stage-3-dev-notes.md)** - Cloud integration features and Stage 4 vision
