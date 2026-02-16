@@ -23,6 +23,9 @@ Production deployment instructions and Google Cloud API configuration (OAuth, Sp
 **→ [Technical Documentation](technical.md)**  
 Architecture overview, data structures, component hierarchy, API integration patterns, and browser requirements.
 
+**→ [Continuous Recording](continuous-recording.md)**  
+How continuous recording works: auto-chunking, progressive transcription, error handling, and browser compatibility.
+
 ### ☁️ Working on Cloud Integration
 
 **→ [Stage 3 Dev Notes](stage-3-dev-notes.md)**  

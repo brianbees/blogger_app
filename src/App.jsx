@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import Header from './components/Header';
 import BottomBar from './components/BottomBar';
 import RecordPanel from './components/RecordPanel';
+import ContinuousRecordPanel from './components/ContinuousRecordPanel';
 import DailyFeed from './components/DailyFeed';
 import DataManager from './components/DataManager';
 import ImagePreviewSheet from './components/ImagePreviewSheet';
@@ -11,6 +12,7 @@ import CloudSync from './components/CloudSync';
 import PublishModal from './components/PublishModal';
 import MicrophoneSelector from './components/MicrophoneSelector';
 import { useMediaRecorder } from './hooks/useMediaRecorder';
+import { useContinuousRecorder } from './hooks/useContinuousRecorder';
 import { generateId } from './utils/id';
 import { getDayKey } from './utils/dateKey';
 import { saveSnippet, getAllSnippets, deleteSnippet, StorageError } from './utils/storage';
@@ -36,18 +38,37 @@ function App() {
   const [selectedBlogUrl, setSelectedBlogUrl] = useState(null);
   const [isMicSelectorOpen, setIsMicSelectorOpen] = useState(false);
   const lastSavedBlobRef = useRef(null);
+  
+  // Recording mode: 'simple' or 'continuous'
+  const [recordingMode, setRecordingMode] = useState(() => {
+    return localStorage.getItem('recordingMode') || 'continuous'; // Default to continuous
+  });
 
+  // Simple recorder (original)
+  const simpleRecorder = useMediaRecorder();
+
+  // Continuous recorder (new)
+  const continuousRecorder = useContinuousRecorder({
+    chunkDuration: 25, // 25 seconds per chunk
+    autoTranscribe: isSignedIn, // Only auto-transcribe if signed in
+    languageCode: 'en-GB',
+  });
+
+  // Use the active recorder based on mode
+  const activeRecorder = recordingMode === 'continuous' ? continuousRecorder : simpleRecorder;
   const {
     startRecording,
     stopRecording,
     isRecording,
     timer,
-    audioBlob,
-    duration,
     error,
     isSupported,
     stream,
-  } = useMediaRecorder();
+  } = activeRecorder;
+
+  // For simple recorder
+  const audioBlob = simpleRecorder.audioBlob;
+  const duration = simpleRecorder.duration;
 
   useEffect(() => {
     loadSnippets();
@@ -82,6 +103,13 @@ function App() {
       handleSaveSnippet();
     }
   }, [audioBlob, isRecording]);
+
+  // Handle continuous recording completion
+  useEffect(() => {
+    if (recordingMode === 'continuous' && !continuousRecorder.isRecording && continuousRecorder.chunks.length > 0) {
+      handleSaveContinuousRecording();
+    }
+  }, [recordingMode, continuousRecorder.isRecording, continuousRecorder.chunks.length]);
 
   const showToast = (message, type = 'error') => {
     setToast({ message, type });
@@ -141,6 +169,84 @@ function App() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleSaveContinuousRecording = async () => {
+    if (isSaving || continuousRecorder.chunks.length === 0) return;
+
+    setIsSaving(true);
+    setStorageError(null);
+
+    try {
+      const now = new Date();
+      const fullTranscript = continuousRecorder.getFullTranscript();
+      const finalBlob = continuousRecorder.getFinalBlob();
+      
+      if (!finalBlob) {
+        throw new Error('No audio data to save');
+      }
+
+      // Calculate total duration from chunks
+      const totalDuration = Math.floor(
+        (continuousRecorder.chunks[continuousRecorder.chunks.length - 1]?.endTime - 
+         continuousRecorder.chunks[0]?.startTime) / 1000
+      );
+
+      const snippet = {
+        id: generateId(),
+        type: 'audio',
+        createdAt: now.getTime(),
+        dayKey: getDayKey(now),
+        duration: totalDuration || timer,
+        audioBlob: finalBlob,
+        transcript: fullTranscript || null,
+        syncStatus: 'local',
+        // Store chunk metadata for debugging/retry
+        chunkMetadata: {
+          totalChunks: continuousRecorder.chunks.length,
+          successfulChunks: continuousRecorder.chunks.filter(c => c.status === 'done').length,
+          failedChunks: continuousRecorder.chunks.filter(c => c.status === 'failed').length,
+        },
+      };
+
+      await saveSnippet(snippet);
+      
+      await loadSnippets();
+      setRefreshTrigger(prev => prev + 1);
+      
+      // Show success message
+      const stats = continuousRecorder.getChunkStats();
+      if (stats.failed > 0) {
+        showToast(`Saved! ${stats.failed} chunk(s) failed to transcribe.`, 'warning');
+      } else if (fullTranscript) {
+        showToast('Recording saved with transcript!', 'success');
+      }
+    } catch (err) {
+      if (err instanceof StorageError) {
+        setStorageError(err.message);
+        if (err.code === 'QUOTA_EXCEEDED') {
+          alert('Storage quota exceeded! Please export your data and free up space.');
+        }
+      } else {
+        setStorageError('Failed to save recording');
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleToggleRecordingMode = () => {
+    if (isRecording) {
+      showToast('Stop recording before changing mode', 'error');
+      return;
+    }
+    
+    const newMode = recordingMode === 'simple' ? 'continuous' : 'simple';
+    setRecordingMode(newMode);
+    localStorage.setItem('recordingMode', newMode);
+    
+    const modeLabel = newMode === 'continuous' ? 'Continuous (auto-split)' : 'Simple';
+    showToast(`Recording mode: ${modeLabel}`, 'success');
   };
 
   const handleImageSelect = (file) => {
@@ -413,8 +519,25 @@ function App() {
 
   return (
     <div className="flex flex-col h-screen bg-gray-50" style={{ minHeight: '100dvh' }} role="application">
-      <Header onCloudSyncClick={handleCloudSyncOpen} isSignedIn={isSignedIn} blogUrl={selectedBlogUrl} />
+      <Header 
+        onCloudSyncClick={handleCloudSyncOpen} 
+        isSignedIn={isSignedIn} 
+        blogUrl={selectedBlogUrl} 
+      />
       <DataManager onDataChange={handleDataChange} onModalChange={setIsModalOpen} />
+      
+      {/* Recording mode toggle button */}
+      {!isRecording && (
+        <div className="max-w-4xl mx-auto px-4 pt-4">
+          <button
+            onClick={handleToggleRecordingMode}
+            className="text-xs px-3 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg font-medium transition-colors shadow-sm"
+            title="Switch recording mode"
+          >
+            {recordingMode === 'continuous' ? '🎙️ Continuous Mode (auto-split)' : '⏺️ Simple Mode'}
+          </button>
+        </div>
+      )}
       
       <main className="flex-1 overflow-y-auto" role="main">
         <div className="max-w-4xl mx-auto px-4 pt-6 pb-32">
@@ -429,15 +552,30 @@ function App() {
             </div>
           )}
           
-          <RecordPanel
-            isRecording={isRecording}
-            timer={timer}
-            isSaving={isSaving}
-            error={error}
-            isSupported={isSupported}
-            onStopRecording={stopRecording}
-            stream={stream}
-          />
+          {recordingMode === 'simple' ? (
+            <RecordPanel
+              isRecording={isRecording}
+              timer={timer}
+              isSaving={isSaving}
+              error={error}
+              isSupported={isSupported}
+              onStopRecording={stopRecording}
+              stream={stream}
+            />
+          ) : (
+            <ContinuousRecordPanel
+              isRecording={isRecording}
+              timer={timer}
+              error={error}
+              isSupported={isSupported}
+              onStopRecording={stopRecording}
+              stream={stream}
+              chunks={continuousRecorder.chunks}
+              fullTranscript={continuousRecorder.getFullTranscript()}
+              chunkStats={continuousRecorder.getChunkStats()}
+              onRetryChunk={continuousRecorder.retryChunk}
+            />
+          )}
           
           <DailyFeed 
             snippets={snippets} 

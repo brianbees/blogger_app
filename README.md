@@ -5,6 +5,7 @@ A mobile-first Progressive Web App for capturing and organizing voice notes and 
 ## Features
 
 - 🎤 **Voice Recording** - Capture audio snippets with real-time waveform visualization
+- ⏺️ **Continuous Recording** - Record long thoughts (2+ minutes) with auto-chunking and progressive transcription
 - 🖼️ **Image Notes** - Upload photos with captions
 - 🎙️ **Auto-Transcribe** - Automatic speech-to-text transcription
 - 📝 **Publish to Blogger** - One-click blog post creation with visual status tracking
