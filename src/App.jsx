@@ -59,6 +59,59 @@ function App() {
     }
   }, []);
 
+  const handleContinuousRecordingComplete = useCallback((recordingData) => {
+    console.log('[App] 🎉 handleContinuousRecordingComplete called with:', {
+      blobSize: recordingData.blob?.size,
+      transcriptLength: recordingData.transcript?.length,
+      chunks: recordingData.chunks.length,
+      duration: recordingData.duration
+    });
+
+    if (!recordingData.blob) {
+      console.error('[App] No audio data in recording');
+      return;
+    }
+
+    const now = new Date();
+    const snippet = {
+      id: generateId(),
+      type: 'audio',
+      createdAt: now.getTime(),
+      dayKey: getDayKey(now),
+      duration: recordingData.duration,
+      audioBlob: recordingData.blob,
+      transcript: recordingData.transcript || null,
+      syncStatus: 'local',
+      chunkMetadata: recordingData.chunkMetadata,
+    };
+
+    // OPTIMISTIC UI: Add to state immediately
+    console.log('[App] ➕ Adding continuous snippet optimistically, ID:', snippet.id);
+    setSnippets(prev => [snippet, ...prev]);
+    setRefreshTrigger(prev => prev + 1);
+
+    // Save to IndexedDB in background
+    saveSnippet(snippet)
+      .then(() => {
+        console.log('[App] Continuous recording saved to IndexedDB');
+        // Clear draft transcript after successful save
+        localStorage.removeItem('draftTranscript');
+        localStorage.removeItem('draftTimestamp');
+        draftTranscriptRef.current = null;
+      })
+      .catch(err => {
+        console.error('[App] Failed to save continuous recording:', err);
+        if (err instanceof StorageError) {
+          setStorageError(err.message);
+          if (err.code === 'QUOTA_EXCEEDED') {
+            alert('Storage quota exceeded! Please export your data and free up space.');
+          }
+        } else {
+          setStorageError('Failed to save recording');
+        }
+      });
+  }, []);
+
   // Simple recorder (original)
   const simpleRecorder = useMediaRecorder();
 
@@ -68,6 +121,7 @@ function App() {
     autoTranscribe: isSignedIn, // Only auto-transcribe if signed in
     languageCode: 'en-GB',
     onAutoSave: handleAutoSave, // Enable auto-save
+    onRecordingComplete: handleContinuousRecordingComplete, // Direct callback when recording stops
   });
 
   // Use the active recorder based on mode
@@ -192,18 +246,25 @@ function App() {
     }
   }, [audioBlob, isRecording]);
 
-  // Handle continuous recording completion
+  // Fallback: Handle continuous recording completion if callback wasn't triggered
+  // (The primary flow is now through onRecordingComplete callback)
   useEffect(() => {
+    console.log('[App] 🔍 Continuous save useEffect fired:', {
+      recordingMode,
+      isRecording: continuousRecorder.isRecording,
+      chunksLength: continuousRecorder.chunks.length,
+    });
+    
     const chunksKey = continuousRecorder.chunks.map(c => c.id).join('-');
     if (recordingMode === 'continuous' && 
         !continuousRecorder.isRecording && 
         continuousRecorder.chunks.length > 0 &&
         chunksKey !== lastSavedContinuousRef.current) {
-      console.log('[App] Saving continuous recording, chunks:', continuousRecorder.chunks.length);
+      console.log('[App] ⏰ Fallback: Triggering handleSaveContinuousRecording via useEffect');
       lastSavedContinuousRef.current = chunksKey;
       handleSaveContinuousRecording();
     }
-  }, [recordingMode, continuousRecorder.isRecording, continuousRecorder.chunks.length]);
+  }, [recordingMode, continuousRecorder.isRecording, continuousRecorder.chunks.length, handleSaveContinuousRecording]);
 
   const showToast = (message, type = 'error') => {
     setToast({ message, type });

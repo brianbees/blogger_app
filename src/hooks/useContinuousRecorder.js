@@ -39,6 +39,7 @@ import { transcribeAudio } from '../services/speechToTextService';
  * @param {boolean} options.autoTranscribe - Auto-transcribe chunks as they arrive (default: true)
  * @param {string} options.languageCode - Language code for transcription (default: 'en-GB')
  * @param {Function} options.onAutoSave - Callback for auto-saving draft transcript
+ * @param {Function} options.onRecordingComplete - Callback when recording stops with all data
  * @returns {Object} Recording state and controls
  */
 export function useContinuousRecorder(options = {}) {
@@ -47,6 +48,7 @@ export function useContinuousRecorder(options = {}) {
     autoTranscribe = true,
     languageCode = 'en-GB',
     onAutoSave = null, // Callback for periodic auto-save
+    onRecordingComplete = null, // Callback when recording stops
   } = options;
 
   const [isRecording, setIsRecording] = useState(false);
@@ -317,11 +319,12 @@ export function useContinuousRecorder(options = {}) {
     if (!onAutoSave) return;
 
     const transcript = getFullTranscript();
+    console.log(`[Continuous] 💾 performAutoSave - transcript length: ${transcript.length}, chunks: ${chunks.length}`);
     if (transcript.length > 0) {
       console.log(`[Auto-Save] Saving draft transcript (${transcript.length} chars)`);
       onAutoSave(transcript, chunks);
     }
-  }, [onAutoSave, chunks]);
+  }, [onAutoSave, chunks, getFullTranscript]);
 
   /**
    * Get the full stitched transcript with duplicate prevention
@@ -528,6 +531,8 @@ export function useContinuousRecorder(options = {}) {
       return;
     }
 
+    console.log('[Continuous] 🛑 STOP RECORDING CALLED, chunks.length:', chunks.length);
+
     // Defensive guard: check recorder state before stopping
     if (mediaRecorderRef.current) {
       const state = mediaRecorderRef.current.state;
@@ -559,9 +564,31 @@ export function useContinuousRecorder(options = {}) {
 
     // Perform final auto-save
     if (onAutoSave) {
+      const transcript = getFullTranscript();
+      console.log('[Continuous] 📞 Calling onAutoSave callback, transcript length:', transcript.length, 'chunks:', chunks.length);
       performAutoSave();
     }
-  }, [isRecording, onAutoSave, performAutoSave]);
+
+    // Notify parent that recording is complete with all data
+    if (onRecordingComplete && chunks.length > 0) {
+      const finalBlob = getFinalBlob();
+      const fullTranscript = getFullTranscript();
+      const recordingData = {
+        chunks: chunks,
+        blob: finalBlob,
+        transcript: fullTranscript,
+        duration: timer,
+        chunkMetadata: {
+          totalChunks: chunks.length,
+          successfulChunks: chunks.filter(c => c.status === 'done').length,
+          failedChunks: chunks.filter(c => c.status === 'failed').length,
+        },
+      };
+      console.log('[Continuous] 📣 Calling onRecordingComplete with blob size:', finalBlob?.size, 'transcript length:', fullTranscript?.length);
+      // Use setTimeout to ensure state updates have propagated
+      setTimeout(() => onRecordingComplete(recordingData), 0);
+    }
+  }, [isRecording, onAutoSave, performAutoSave, chunks, getFullTranscript, getFinalBlob, timer, onRecordingComplete]);
 
   /**
    * Pause recording (if supported) with defensive guards
