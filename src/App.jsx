@@ -211,7 +211,7 @@ function App() {
         createdAt: now.getTime(),
         dayKey: getDayKey(now),
         duration: 0, // Unknown duration
-        audioBlob: null, // No audio blob (transcript only)
+      audioBlob: new Blob([], { type: 'audio/webm' }), // Placeholder blob — storage requires at least one blob
         transcript: transcript,
         syncStatus: 'local',
         recovered: true, // Flag to indicate this was recovered

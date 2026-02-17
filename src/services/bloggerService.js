@@ -180,7 +180,7 @@ export async function publishPost(blogId, snippet, transcript = '', imageUrl = n
     };
 
     const endpoint = isDraft 
-      ? `${BLOGGER_API_URL}/blogs/${blogId}/posts`
+      ? `${BLOGGER_API_URL}/blogs/${blogId}/posts?isDraft=true`
       : `${BLOGGER_API_URL}/blogs/${blogId}/posts`;
 
     const response = await fetch(endpoint + (isDraft ? '' : '?isDraft=false'), {

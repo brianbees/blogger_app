@@ -6,27 +6,13 @@ import { ensureBlobMimeType, detectImageMimeType } from '../utils/imageUtils';
 export default function SnippetCard({ snippet, onDelete, onImageClick, onPublishClick, isSignedIn, onTranscriptUpdate, onAttachImage, onShowToast, onShowConfirm }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [audioUrl, setAudioUrl] = useState(null);
   const [imageUrl, setImageUrl] = useState(null);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const audioRef = useRef(null);
   const fileInputRef = useRef(null);
-  
-  // Debug log to track component state
-  useEffect(() => {
-    if (snippet.audioBlob) {
-      console.log('[SnippetCard] Audio snippet render state:', {
-        id: snippet.id,
-        type: snippet.type,
-        isTranscribing,
-        hasTranscript: !!snippet.transcript,
-        transcriptLength: snippet.transcript?.length,
-        isSignedIn
-      });
-    }
-  });
-  
+
   const audioBlob = snippet.audioBlob;
-  const audioUrl = audioBlob ? URL.createObjectURL(audioBlob) : null;
 
   // Handle image blob URL (for image snippets OR audio snippets with attached image)
   useEffect(() => {
@@ -88,6 +74,19 @@ export default function SnippetCard({ snippet, onDelete, onImageClick, onPublish
       }
     };
   }, [snippet.mediaBlob, snippet.mimeType]);
+
+  // Handle audio blob URL with cleanup to prevent memory leaks
+  useEffect(() => {
+    if (!audioBlob) {
+      setAudioUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(audioBlob);
+    setAudioUrl(url);
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [audioBlob]);
 
   // Reset transcribing state when transcript is received
   useEffect(() => {
@@ -492,24 +491,6 @@ export default function SnippetCard({ snippet, onDelete, onImageClick, onPublish
           </span>
         </div>
         <div className="flex items-center gap-1">
-          {(() => {
-            // Debug log for button state
-            const isReady = !snippet.audioBlob || snippet.transcript;
-            const isPublished = !!snippet.publishedAt;
-            const buttonState = isPublished ? 'published' : (!snippet.audioBlob ? 'image-ready' : (isTranscribing ? 'transcribing' : (snippet.transcript ? 'audio-ready' : 'waiting')));
-            console.log('[SnippetCard] Button state:', {
-              id: snippet.id,
-              hasAudio: !!snippet.audioBlob,
-              hasTranscript: !!snippet.transcript,
-              isTranscribing,
-              isSignedIn,
-              isPublished,
-              buttonState,
-              isReady
-            });
-            return null;
-          })()}
-          
           {isSignedIn && onPublishClick && (
             <button
               onClick={handlePublish}

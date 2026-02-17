@@ -513,11 +513,9 @@ export function useContinuousRecorder(options = {}) {
 
       // Handle recording stop
       mediaRecorder.onstop = () => {
-        let totalBytes = 0;
-        if (chunks && Array.isArray(chunks)) {
-          totalBytes = chunks.reduce((sum, c) => sum + (c.blob && c.blob.size ? c.blob.size : 0), 0);
-        }
-        console.log('[Recording] MediaRecorder stopped, final chunks.length:', chunks.length, 'totalBytes:', totalBytes);
+        const currentChunks = chunksRef.current || [];
+        const totalBytes = currentChunks.reduce((sum, b) => sum + (b?.size || 0), 0);
+        console.log('[Recording] MediaRecorder stopped, final chunks.length:', currentChunks.length, 'totalBytes:', totalBytes);
         // Stop all tracks
         if (streamRef.current) {
           streamRef.current.getTracks().forEach(track => track.stop());
@@ -690,7 +688,7 @@ export function useContinuousRecorder(options = {}) {
     return blob;
   }
 
-  /** /**
+  /**
    * Pause recording (if supported) with defensive guards
    */
   const pauseRecording = useCallback(() => {
