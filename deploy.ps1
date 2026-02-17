@@ -16,7 +16,7 @@ $pkgContent = Get-Content "package.json" -Raw
 if ($pkgContent -match '"version":\s*"(\d+)\.(\d+)\.(\d+)"') {
     $major = $matches[1]; $minor = $matches[2]; $patch = [int]$matches[3] + 1
     $newVersion = "$major.$minor.$patch"
-    $pkgContent = $pkgContent -replace '"version":\s*"\d+\.\d+\.\d+"', "\"version\": \"$newVersion\""
+    $pkgContent = $pkgContent -replace '"version":\s*"\d+\.\d+\.\d+"', ('"version": "' + $newVersion + '"')
     Set-Content "package.json" $pkgContent -NoNewline
     Write-Host "✅ Version bumped to v$newVersion" -ForegroundColor Green
 } else {
