@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Header from './components/Header';
 import BottomBar from './components/BottomBar';
-import RecordPanel from './components/RecordPanel';
 import ContinuousRecordPanel from './components/ContinuousRecordPanel';
 import DailyFeed from './components/DailyFeed';
 import DataManager from './components/DataManager';
@@ -12,7 +11,6 @@ import CloudSync from './components/CloudSync';
 import PublishModal from './components/PublishModal';
 import ConfirmDialog from './components/ConfirmDialog';
 import MicrophoneSelector from './components/MicrophoneSelector';
-import { useMediaRecorder } from './hooks/useMediaRecorder';
 import { useContinuousRecorder } from './hooks/useContinuousRecorder';
 import { generateId } from './utils/id';
 import { getDayKey } from './utils/dateKey';
@@ -39,14 +37,8 @@ function App() {
   const [selectedBlogUrl, setSelectedBlogUrl] = useState(null);
   const [isMicSelectorOpen, setIsMicSelectorOpen] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState(null); // For draft recovery and other confirmations
-  const lastSavedBlobRef = useRef(null);
   const lastSavedContinuousRef = useRef(null); // Track continuous recordings
   const draftTranscriptRef = useRef(null); // Store draft transcript for recovery
-
-  // Recording mode: 'simple' or 'continuous'
-  const [recordingMode, setRecordingMode] = useState(() => {
-    return localStorage.getItem('recordingMode') || 'continuous'; // Default to continuous
-  });
 
   // Auto-save callback for continuous recorder
   const handleAutoSave = useCallback((transcript, chunks) => {
@@ -116,10 +108,7 @@ function App() {
       });
   }, []);
 
-  // Simple recorder (original)
-  const simpleRecorder = useMediaRecorder();
-
-  // Continuous recorder (new) with auto-save
+  // Continuous recorder with auto-save and auto-transcription
   const continuousRecorder = useContinuousRecorder({
     chunkDuration: 25, // 25 seconds per chunk
     autoTranscribe: isSignedIn, // Only auto-transcribe if signed in
@@ -137,8 +126,7 @@ function App() {
     }, // Direct callback when recording stops
   });
 
-  // Use the active recorder based on mode
-  const activeRecorder = recordingMode === 'continuous' ? continuousRecorder : simpleRecorder;
+  // Extract recorder controls
   const {
     startRecording,
     stopRecording,
@@ -147,11 +135,7 @@ function App() {
     error,
     isSupported,
     stream,
-  } = activeRecorder;
-
-  // Get audioBlob and duration from appropriate recorder
-  const audioBlob = recordingMode === 'simple' ? simpleRecorder.audioBlob : null;
-  const duration = recordingMode === 'simple' ? simpleRecorder.duration : 0;
+  } = continuousRecorder;
 
   useEffect(() => {
     loadSnippets();
@@ -253,13 +237,6 @@ function App() {
     }
   };
 
-  useEffect(() => {
-    if (audioBlob && !isRecording && audioBlob !== lastSavedBlobRef.current) {
-      console.log('[App] Saving simple recording, audioBlob size:', audioBlob.size);
-      handleSaveSnippet();
-    }
-  }, [audioBlob, isRecording]);
-
   // Note: continuous recording completion is handled via direct callback
   // (handleContinuousRecordingComplete).
 
@@ -284,149 +261,6 @@ function App() {
         setStorageError('Failed to load recordings');
       }
     }
-  };
-
-  const handleSaveSnippet = async () => {
-    if (!audioBlob || audioBlob === lastSavedBlobRef.current) {
-      console.log('[App] handleSaveSnippet - Early return:', { hasAudioBlob: !!audioBlob, alreadySaved: audioBlob === lastSavedBlobRef.current });
-      return;
-    }
-
-    console.log('[App] handleSaveSnippet - Starting save...');
-    setIsSaving(true);
-    setStorageError(null);
-    lastSavedBlobRef.current = audioBlob;
-
-    try {
-      const now = new Date();
-      const snippet = {
-        id: generateId(),
-        type: 'audio',
-        createdAt: now.getTime(),
-        dayKey: getDayKey(now),
-        duration,
-        audioBlob,
-        transcript: null,
-        syncStatus: 'local',
-      };
-
-      // OPTIMISTIC UI: Add to state immediately
-      console.log('[App] ➕ Adding snippet optimistically, ID:', snippet.id);
-      setSnippets(prev => [snippet, ...(Array.isArray(prev) ? prev : [])]);
-      setRefreshTrigger(prev => prev + 1);
-
-      // Save to IndexedDB in background
-      await saveSnippet(snippet);
-      console.log('[App] handleSaveSnippet - Save complete!');
-    } catch (err) {
-      console.error('[App] handleSaveSnippet - Error:', err);
-      if (err instanceof StorageError) {
-        setStorageError(err.message);
-        if (err.code === 'QUOTA_EXCEEDED') {
-          showToast('Storage quota exceeded! Please export your data and free up space.', 'error');
-        }
-      } else {
-        setStorageError('Failed to save recording');
-      }
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-
-  const handleSaveContinuousRecording = async () => {
-    if (isSaving || continuousRecorder.chunks.length === 0) {
-      console.log('[App] handleSaveContinuousRecording - Early return:', { isSaving, chunksLength: continuousRecorder.chunks.length });
-      return;
-    }
-
-    console.log('[App] handleSaveContinuousRecording - Starting save...');
-    setIsSaving(true);
-    setStorageError(null);
-
-    try {
-      const now = new Date();
-      const fullTranscript = continuousRecorder.getFullTranscript();
-      const finalBlob = continuousRecorder.getFinalBlob();
-
-      if (!finalBlob) {
-        throw new Error('No audio data to save');
-      }
-
-      console.log('[App] Created final blob, size:', finalBlob.size, 'transcript length:', fullTranscript?.length || 0);
-
-      // Calculate total duration from chunks
-      const totalDuration = Math.floor(
-        (continuousRecorder.chunks[continuousRecorder.chunks.length - 1]?.endTime - 
-         continuousRecorder.chunks[0]?.startTime) / 1000
-      );
-
-      const snippet = {
-        id: generateId(),
-        type: 'audio',
-        createdAt: now.getTime(),
-        dayKey: getDayKey(now),
-        duration: totalDuration || timer,
-        audioBlob: finalBlob,
-        transcript: fullTranscript || null,
-        syncStatus: 'local',
-        // Store chunk metadata for debugging/retry
-        chunkMetadata: {
-          totalChunks: continuousRecorder.chunks.length,
-          successfulChunks: continuousRecorder.chunks.filter(c => c.status === 'done').length,
-          failedChunks: continuousRecorder.chunks.filter(c => c.status === 'failed').length,
-        },
-      };
-
-      // OPTIMISTIC UI: Add to state immediately
-      console.log('[App] ➕ Adding snippet optimistically, ID:', snippet.id);
-      setSnippets(prev => [snippet, ...(Array.isArray(prev) ? prev : [])]);
-      setRefreshTrigger(prev => prev + 1);
-
-      // Save to IndexedDB in background
-      await saveSnippet(snippet);
-
-      // Clear draft transcript after successful save
-      localStorage.removeItem('draftTranscript');
-      localStorage.removeItem('draftTimestamp');
-      draftTranscriptRef.current = null;
-
-      console.log('[App] handleSaveContinuousRecording - Save complete!');
-
-      // Show success message
-      const stats = continuousRecorder.getChunkStats();
-      if (stats.failed > 0) {
-        showToast(`Saved! ${stats.failed} chunk(s) failed to transcribe.`, 'warning');
-      } else if (fullTranscript) {
-        showToast('Recording saved with transcript!', 'success');
-      }
-    } catch (err) {
-      console.error('[App] handleSaveContinuousRecording - Error:', err);
-      if (err instanceof StorageError) {
-        setStorageError(err.message);
-        if (err.code === 'QUOTA_EXCEEDED') {
-          showToast('Storage quota exceeded! Please export your data and free up space.', 'error');
-        }
-      } else {
-        setStorageError('Failed to save recording');
-      }
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleToggleRecordingMode = () => {
-    if (isRecording) {
-      showToast('Stop recording before changing mode', 'error');
-      return;
-    }
-
-    const newMode = recordingMode === 'simple' ? 'continuous' : 'simple';
-    setRecordingMode(newMode);
-    localStorage.setItem('recordingMode', newMode);
-
-    const modeLabel = newMode === 'continuous' ? 'Continuous (auto-split)' : 'Simple';
-    showToast(`Recording mode: ${modeLabel}`, 'success');
   };
 
   const handleImageSelect = (file) => {
@@ -724,19 +558,6 @@ function App() {
       />
       <DataManager onDataChange={handleDataChange} onModalChange={setIsModalOpen} />
 
-      {/* Recording mode toggle button */}
-      {!isRecording && (
-        <div className="max-w-4xl mx-auto px-4 pt-4">
-          <button
-            onClick={handleToggleRecordingMode}
-            className="text-xs px-3 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg font-medium transition-colors shadow-sm"
-            title="Switch recording mode"
-          >
-            {recordingMode === 'continuous' ? '🎙️ Continuous Mode (auto-split)' : '⏺️ Simple Mode'}
-          </button>
-        </div>
-      )}
-
       <main className="flex-1 overflow-y-auto" role="main">
         <div className="max-w-4xl mx-auto px-4 pt-6 pb-32">
           {storageError && (
@@ -748,32 +569,21 @@ function App() {
               <p className="font-semibold">Storage Error</p>
               <p className="text-sm">{storageError}</p>
             </div>
-          )}
+          )
+}
 
-          {recordingMode === 'simple' ? (
-            <RecordPanel
-              isRecording={isRecording}
-              timer={timer}
-              isSaving={isSaving}
-              error={error}
-              isSupported={isSupported}
-              onStopRecording={stopRecording}
-              stream={stream}
-            />
-          ) : (
-            <ContinuousRecordPanel
-              isRecording={isRecording}
-              timer={timer}
-              error={error}
-              isSupported={isSupported}
-              onStopRecording={stopRecording}
-              stream={stream}
-              chunks={continuousRecorder.chunks}
-              fullTranscript={continuousRecorder.getFullTranscript()}
-              chunkStats={continuousRecorder.getChunkStats()}
-              onRetryChunk={continuousRecorder.retryChunk}
-            />
-          )}
+          <ContinuousRecordPanel
+            isRecording={isRecording}
+            timer={timer}
+            error={error}
+            isSupported={isSupported}
+            onStopRecording={stopRecording}
+            stream={stream}
+            chunks={continuousRecorder.chunks}
+            fullTranscript={continuousRecorder.getFullTranscript()}
+            chunkStats={continuousRecorder.getChunkStats()}
+            onRetryChunk={continuousRecorder.retryChunk}
+          />
 
           <DailyFeed 
             snippets={snippets} 

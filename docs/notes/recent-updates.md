@@ -2,6 +2,53 @@
 
 ## February 2026
 
+### Simple Mode Removal - Continuous Recording Only (2026-02-17)
+
+**Simplified User Experience:**
+- Removed recording mode toggle/selector from UI
+- Removed simple recording mode entirely
+- App now uses only continuous recording mode with auto-chunking
+- One recording method = simpler, more consistent user experience
+
+**Why Continuous Mode Only:**
+- Superior reliability: Built-in recording time limit fix (25s chunks keep MediaRecorder active)
+- Auto-transcription: Live transcript during recording (when signed in to Google)
+- Auto-save: Draft recovery if browser crashes
+- Better mobile experience: Optimized for long recordings on mobile devices
+- Works offline: Recording works without sign-in (transcription disabled)
+
+**Removed Code:**
+- `src/hooks/useMediaRecorder.js` - No longer used (simple recorder)
+- `src/components/RecordPanel.jsx` - No longer used (simple mode UI)
+- Recording mode state and toggle logic from App.jsx
+- `handleSaveSnippet()` function (simple mode save logic)
+- `handleToggleRecordingMode()` function
+
+**Technical Impact:**
+- Cleaner codebase: ~200 lines of code removed
+- Single code path for recording = easier maintenance
+- Consistent behavior across all devices/browsers
+- Reduced complexity for users and developers
+
+### Simple Recorder Time Limit Fix (2026-02-17)
+
+**Recording Duration Bug Fixed:**
+- Simple recorder now supports unlimited recording duration
+- Previous behavior: Recordings would stop after ~25-30 seconds on some browsers
+- Root cause: `MediaRecorder.start()` without `timeslice` parameter could cause automatic stop
+- Solution: Added 10-second `timeslice` parameter to keep MediaRecorder active
+- Implementation: `mediaRecorder.start(10000)` requests data every 10 seconds
+
+**Technical Details:**
+- Browser behavior varies without timeslice - some buffer data indefinitely, others stop after first buffer fills
+- Continuous recorder already had this fix (25-second chunks for transcription)
+- Simple recorder now also uses timeslice purely to keep recording active
+- Data chunks are collected and combined into final blob on stop
+- No functional changes to user experience, only reliability improvement
+
+**File References:**
+- `src/hooks/useMediaRecorder.js:137-139` - Added timeslice parameter with explanation
+
 ### Popup-Free UX Implementation (2026-02-17)
 
 **Browser Popups Eliminated:**
