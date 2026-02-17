@@ -16,6 +16,7 @@ import { generateId } from './utils/id';
 import { getDayKey } from './utils/dateKey';
 import { saveSnippet, getAllSnippets, deleteSnippet, StorageError } from './utils/storage';
 import { initGoogleServices, isSignedIn as checkSignedIn } from './services/googleAuth';
+import { detectImageMimeType } from './utils/imageUtils';
 
 // Image validation constants
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -263,17 +264,40 @@ function App() {
     }
   };
 
-  const handleImageSelect = (file) => {
-    // Validate file type
-    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+  const handleImageSelect = async (file) => {
+    // Validate file size first
+    if (file.size > MAX_IMAGE_SIZE) {
+      showToast('Image is too large. Maximum size is 10MB', 'error');
+      return;
+    }
+
+    // Validate file type - check both MIME type and extension for mobile compatibility
+    const fileName = file.name?.toLowerCase() || '';
+    const hasValidExtension = fileName.endsWith('.jpg') || fileName.endsWith('.jpeg') || fileName.endsWith('.png');
+    const hasValidMimeType = file.type && ALLOWED_IMAGE_TYPES.includes(file.type);
+
+    // On some mobile devices (like Samsung S21), file.type might be empty or incorrect
+    // Accept if either MIME type is valid OR extension is valid
+    if (!hasValidMimeType && !hasValidExtension) {
       showToast('Please select a JPG or PNG image', 'error');
       return;
     }
 
-    // Validate file size
-    if (file.size > MAX_IMAGE_SIZE) {
-      showToast('Image is too large. Maximum size is 10MB', 'error');
-      return;
+    // If MIME type is missing, detect it from file content
+    if (!file.type || file.type === '' || file.type === 'application/octet-stream') {
+      try {
+        const detectedType = await detectImageMimeType(file);
+        if (!detectedType) {
+          showToast('Could not verify image format', 'error');
+          return;
+        }
+        console.log('[App] Detected MIME type for selected image:', detectedType);
+        // Create a new File object with the correct MIME type
+        file = new File([file], file.name, { type: detectedType });
+      } catch (err) {
+        console.error('[App] Failed to detect image type:', err);
+        // Continue with original file if extension is valid
+      }
     }
 
     setSelectedImageFile(file);
@@ -286,8 +310,24 @@ function App() {
     try {
       const now = new Date();
 
+      // Ensure MIME type is set (Samsung S21 compatibility)
+      let mimeType = imageFile.type;
+      if (!mimeType || mimeType === '' || mimeType === 'application/octet-stream') {
+        console.log('[App] Image MIME type missing in save, detecting from content...');
+        try {
+          mimeType = await detectImageMimeType(imageFile);
+          if (!mimeType) {
+            mimeType = 'image/jpeg'; // Default fallback
+          }
+          console.log('[App] Detected MIME type for save:', mimeType);
+        } catch (err) {
+          console.error('[App] Failed to detect MIME type on save:', err);
+          mimeType = 'image/jpeg'; // Default fallback
+        }
+      }
+
       // Create a proper Blob with explicit MIME type to ensure mobile compatibility
-      const imageBlob = new Blob([imageFile], { type: imageFile.type });
+      const imageBlob = new Blob([imageFile], { type: mimeType });
 
       const snippet = {
         id: generateId(),
@@ -296,7 +336,7 @@ function App() {
         createdAt: now.getTime(),
         dayKey: getDayKey(now),
         mediaBlob: imageBlob,
-        mimeType: imageFile.type, // Store MIME type separately for mobile compatibility
+        mimeType: mimeType, // Store MIME type separately for mobile compatibility
         caption: caption,
         dataVersion: 1,
         syncStatus: 'local',
@@ -383,12 +423,30 @@ function App() {
 
       let updatedSnippet;
       if (file) {
+        // Detect MIME type if missing (Samsung S21 and other mobile devices)
+        let mimeType = file.type;
+        if (!mimeType || mimeType === '' || mimeType === 'application/octet-stream') {
+          console.log('[App] File MIME type missing, detecting from content...');
+          try {
+            mimeType = await detectImageMimeType(file);
+            if (!mimeType) {
+              showToast('Could not determine image format', 'error');
+              return;
+            }
+            console.log('[App] Detected MIME type:', mimeType);
+          } catch (err) {
+            console.error('[App] Failed to detect MIME type:', err);
+            showToast('Failed to process image', 'error');
+            return;
+          }
+        }
+
         // Add/replace image - create proper Blob with explicit MIME type for mobile compatibility
-        const imageBlob = new Blob([file], { type: file.type });
+        const imageBlob = new Blob([file], { type: mimeType });
         updatedSnippet = {
           ...snippet,
           mediaBlob: imageBlob,
-          mimeType: file.type, // Store MIME type separately for mobile compatibility
+          mimeType: mimeType, // Store MIME type separately for mobile compatibility
           caption: snippet.caption || null,
         };
       } else {

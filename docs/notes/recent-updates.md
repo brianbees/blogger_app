@@ -2,6 +2,44 @@
 
 ## February 2026
 
+### Samsung S21 Image Attachment Fix (2026-02-17)
+
+**Problem Fixed:**
+- Images not attaching on Samsung S21 and similar mobile devices
+- Samsung Camera app and some mobile browsers don't set proper MIME types on File objects
+- Validation was rejecting valid images due to missing/incorrect `file.type` property
+
+**Root Causes:**
+1. File type validation only checked `file.type` property
+2. Samsung devices often provide empty string, `null`, or `'application/octet-stream'` for MIME type
+3. No fallback to file extension checking
+4. No content-based MIME type detection
+
+**Solutions Implemented:**
+- **Dual validation**: Check both MIME type AND file extension (.jpg, .jpeg, .png)
+- **Content detection**: Use `detectImageMimeType()` to read file signature (magic bytes) when MIME type is missing
+- **Graceful fallback**: Accept images if either validation method succeeds
+- **Proper Blob creation**: Always create Blob with explicitly detected MIME type
+
+**Files Modified:**
+- `src/components/SnippetCard.jsx` - Enhanced file validation for image attachment to recordings
+- `src/App.jsx` - Enhanced validation for both direct image upload and attachment to recordings
+- Added `detectImageMimeType` import in both files
+
+**Technical Details:**
+- Validates file size before MIME type (faster failure for oversized files)
+- Checks file extension as primary mobile compatibility layer
+- Falls back to magic byte detection for files without MIME type
+- Creates new File/Blob objects with correct MIME type when detected
+- Logs detected MIME types for debugging mobile issues
+
+**Mobile Compatibility:**
+- Samsung S21 Camera app ✓
+- Samsung Internet browser ✓
+- Chrome on Android ✓
+- Safari on iOS ✓
+- All devices with missing MIME type metadata ✓
+
 ### Simple Mode Removal - Continuous Recording Only (2026-02-17)
 
 **Simplified User Experience:**

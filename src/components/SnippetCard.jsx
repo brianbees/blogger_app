@@ -1,7 +1,7 @@
 import { formatTime } from '../utils/dateKey';
 import { useState, useRef, useEffect } from 'react';
 import { transcribeAudio } from '../services/speechToTextService';
-import { ensureBlobMimeType } from '../utils/imageUtils';
+import { ensureBlobMimeType, detectImageMimeType } from '../utils/imageUtils';
 
 export default function SnippetCard({ snippet, onDelete, onImageClick, onPublishClick, isSignedIn, onTranscriptUpdate, onAttachImage, onShowToast, onShowConfirm }) {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -231,22 +231,57 @@ export default function SnippetCard({ snippet, onDelete, onImageClick, onPublish
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/png'];
-    if (!allowedTypes.includes(file.type)) {
-      if (onShowToast) {
-        onShowToast('Please select a JPG or PNG image', 'error');
-      }
-      return;
-    }
-
-    // Validate file size (10MB max)
+    // Validate file size first (10MB max)
     const maxSize = 10 * 1024 * 1024;
     if (file.size > maxSize) {
       if (onShowToast) {
         onShowToast('Image must be less than 10MB', 'error');
       }
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
       return;
+    }
+
+    // Validate file type - check both MIME type and extension for mobile compatibility
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+    const fileName = file.name?.toLowerCase() || '';
+    const hasValidExtension = fileName.endsWith('.jpg') || fileName.endsWith('.jpeg') || fileName.endsWith('.png');
+    const hasValidMimeType = file.type && allowedTypes.includes(file.type);
+
+    // On some mobile devices (like Samsung), file.type might be empty or incorrect
+    // Accept if either MIME type is valid OR extension is valid
+    if (!hasValidMimeType && !hasValidExtension) {
+      if (onShowToast) {
+        onShowToast('Please select a JPG or PNG image', 'error');
+      }
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
+
+    // If MIME type is missing but extension is valid, detect from file content
+    if (!file.type || file.type === '' || file.type === 'application/octet-stream') {
+      try {
+        const detectedType = await detectImageMimeType(file);
+        if (!detectedType) {
+          if (onShowToast) {
+            onShowToast('Could not verify image format', 'error');
+          }
+          // Reset input
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
+          return;
+        }
+        console.log('[SnippetCard] Detected MIME type for file:', detectedType);
+      } catch (err) {
+        console.error('[SnippetCard] Failed to detect image type:', err);
+        // Still allow if extension is valid - let backend handle it
+      }
     }
 
     if (onAttachImage) {
