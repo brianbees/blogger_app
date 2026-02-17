@@ -31,6 +31,7 @@ export default function SnippetCard({ snippet, onDelete, onImageClick, onPublish
   // Handle image blob URL (for image snippets OR audio snippets with attached image)
   useEffect(() => {
     let mounted = true;
+    let createdUrl = null; // Track URL created in THIS effect run
     
     const createImageUrl = async () => {
       if (snippet.mediaBlob) {
@@ -38,8 +39,8 @@ export default function SnippetCard({ snippet, onDelete, onImageClick, onPublish
           // Ensure Blob has correct MIME type for mobile compatibility (S21, etc.)
           const blob = await ensureBlobMimeType(snippet.mediaBlob, snippet.mimeType);
           if (mounted) {
-            const url = URL.createObjectURL(blob);
-            setImageUrl(url);
+            createdUrl = URL.createObjectURL(blob);
+            setImageUrl(createdUrl);
           }
         } catch (err) {
           console.error('[SnippetCard] Failed to create image URL:', err);
@@ -58,8 +59,9 @@ export default function SnippetCard({ snippet, onDelete, onImageClick, onPublish
 
     return () => {
       mounted = false;
-      if (imageUrl) {
-        URL.revokeObjectURL(imageUrl);
+      // Revoke URL created in THIS effect run to prevent memory leaks
+      if (createdUrl) {
+        URL.revokeObjectURL(createdUrl);
       }
     };
   }, [snippet.mediaBlob, snippet.mimeType]);
