@@ -69,7 +69,7 @@ function createPostContent(snippet, transcript, imageUrl = null) {
   
   // Add image if present
   if (imageUrl) {
-    html += `<p style="text-align: center;"><img src="${imageUrl}" alt="Journal entry image" style="max-width: 120px; width: 100%; height: auto; border-radius: 8px; display: block; margin: 0 auto;" /></p>`;
+    html += `<p style="text-align: center;"><img src="${imageUrl}" alt="Journal entry image" style="max-width: 600px; width: 100%; height: auto; border-radius: 8px; display: block; margin: 0 auto;" /></p>`;
   }
   
   // Add caption if present
@@ -146,7 +146,7 @@ export async function publishPost(blogId, snippet, transcript = '', imageUrl = n
     const token = await ensureValidToken();
     
     // VERSION MARKER - Confirm which code is deployed
-    console.log('[bloggerService] VERSION: 2026-02-14-12:15 - No duration, date at end, 120px images');
+    console.log('[bloggerService] VERSION: 2026-02-17-21:58 - 600px responsive images');
 
     const {
       isDraft = false,
