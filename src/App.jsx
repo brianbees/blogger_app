@@ -116,6 +116,15 @@ function App() {
     languageCode: 'en-GB',
     onAutoSave: handleAutoSave, // Enable auto-save
 
+    // Warning when transcription returns no results (unclear audio)
+    onTranscriptionWarning: useCallback((warning) => {
+      if (warning.reason === 'no-speech') {
+        showToast('No speech detected in recording. Audio may be unclear or too quiet.', 'warning');
+      } else if (warning.reason === 'low-confidence') {
+        showToast(`Low transcription confidence (${Math.round(warning.confidence * 100)}%). Audio may be unclear.`, 'warning');
+      }
+    }, []),
+
     // IMPORTANT: hook calls with full recordingData object
     onRecordingComplete: (recordingData) => {
       const blob = recordingData?.blob;

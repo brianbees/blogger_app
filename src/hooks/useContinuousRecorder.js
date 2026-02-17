@@ -49,6 +49,7 @@ export function useContinuousRecorder(options = {}) {
     languageCode = 'en-GB',
     onAutoSave = null, // Callback for periodic auto-save
     onRecordingComplete = null, // Callback when recording stops
+    onTranscriptionWarning = null, // Callback when transcription returns empty/low-confidence
   } = options;
 
   const [isRecording, setIsRecording] = useState(false);
@@ -170,7 +171,22 @@ export function useContinuousRecorder(options = {}) {
         // Call Speech-to-Text API
         const result = await transcribeAudio(chunk.blob, languageCode);
 
-        console.log(`[Transcription] Chunk ${chunk.index} succeeded, transcript length: ${result.transcript?.length || 0}`);
+        console.log(`[Transcription] Chunk ${chunk.index} succeeded, transcript length: ${result.transcript?.length || 0}, confidence: ${result.confidence}`);
+
+        // Check for empty or low-confidence transcription
+        const hasNoSpeech = !result.transcript || result.transcript.trim().length === 0;
+        const hasLowConfidence = result.confidence < 0.3;
+        
+        if (hasNoSpeech || hasLowConfidence) {
+          console.warn(`[Transcription] Chunk ${chunk.index} warning: ${hasNoSpeech ? 'no speech detected' : 'low confidence'}`);
+          if (onTranscriptionWarning) {
+            onTranscriptionWarning({
+              chunkIndex: chunk.index,
+              reason: hasNoSpeech ? 'no-speech' : 'low-confidence',
+              confidence: result.confidence,
+            });
+          }
+        }
 
         // Update with transcript and mark as done
         setChunks(prev => {

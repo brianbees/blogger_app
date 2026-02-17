@@ -17,6 +17,7 @@ dev-dist
 .env
 .env.local
 .env.*.local
+.env.deploy
 
 # Production builds and archives (may contain bundled credentials)
 *.zip
