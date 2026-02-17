@@ -91,8 +91,18 @@ function CloudSync({ isOpen, onClose, onSignInChange }) {
         onSignInChange(true);
       }
     } catch (err) {
-      setError('Sign-in failed. Please try again.');
-      console.error(err);
+      console.error('Sign-in error:', err);
+      
+      // Provide more helpful error messages for mobile users
+      const errorMessage = err.message || 'Sign-in failed';
+      
+      if (errorMessage.includes('popup') || errorMessage.includes('blocked')) {
+        setError('Pop-up was blocked. Please allow pop-ups for this site and try again.');
+      } else if (errorMessage.includes('consent')) {
+        setError('Google consent required. Please complete the sign-in process.');
+      } else {
+        setError('Sign-in failed. Please check your internet connection and try again.');
+      }
     } finally {
       setLoading(false);
     }

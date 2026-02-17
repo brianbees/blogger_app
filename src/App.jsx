@@ -10,6 +10,7 @@ import ImageViewer from './components/ImageViewer';
 import Toast from './components/Toast';
 import CloudSync from './components/CloudSync';
 import PublishModal from './components/PublishModal';
+import ConfirmDialog from './components/ConfirmDialog';
 import MicrophoneSelector from './components/MicrophoneSelector';
 import { useMediaRecorder } from './hooks/useMediaRecorder';
 import { useContinuousRecorder } from './hooks/useContinuousRecorder';
@@ -37,6 +38,7 @@ function App() {
   const [selectedBlogId, setSelectedBlogId] = useState(null);
   const [selectedBlogUrl, setSelectedBlogUrl] = useState(null);
   const [isMicSelectorOpen, setIsMicSelectorOpen] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState(null); // For draft recovery and other confirmations
   const lastSavedBlobRef = useRef(null);
   const lastSavedContinuousRef = useRef(null); // Track continuous recordings
   const draftTranscriptRef = useRef(null); // Store draft transcript for recovery
@@ -106,7 +108,7 @@ function App() {
         if (err instanceof StorageError) {
           setStorageError(err.message);
           if (err.code === 'QUOTA_EXCEEDED') {
-            alert('Storage quota exceeded! Please export your data and free up space.');
+            showToast('Storage quota exceeded! Please export your data and free up space.', 'error');
           }
         } else {
           setStorageError('Failed to save recording');
@@ -180,20 +182,21 @@ function App() {
 
         // Only offer recovery if draft is less than 30 minutes old
         if (ageMinutes < 30) {
-          const shouldRecover = confirm(
-            `Found unsaved recording transcript from ${Math.round(ageMinutes)} minutes ago. ` +
-            `Would you like to recover it?\n\n` +
-            `Preview: "${draftTranscript.substring(0, 100)}..."`
-          );
-
-          if (shouldRecover) {
-            // Create a snippet from the draft
-            handleRecoverDraft(draftTranscript);
-          } else {
-            // Clear draft
-            localStorage.removeItem('draftTranscript');
-            localStorage.removeItem('draftTimestamp');
-          }
+          // Show confirmation dialog instead of browser confirm()
+          setConfirmDialog({
+            title: 'Recover Draft?',
+            message: `Found unsaved recording transcript from ${Math.round(ageMinutes)} minutes ago. Would you like to recover it?\n\nPreview: "${draftTranscript.substring(0, 100)}..."`,
+            onConfirm: () => {
+              handleRecoverDraft(draftTranscript);
+            },
+            onCancel: () => {
+              // Clear draft
+              localStorage.removeItem('draftTranscript');
+              localStorage.removeItem('draftTimestamp');
+            },
+            confirmText: 'Recover',
+            cancelText: 'Discard'
+          });
         } else {
           // Draft too old, clear it
           localStorage.removeItem('draftTranscript');
@@ -320,7 +323,7 @@ function App() {
       if (err instanceof StorageError) {
         setStorageError(err.message);
         if (err.code === 'QUOTA_EXCEEDED') {
-          alert('Storage quota exceeded! Please export your data and free up space.');
+          showToast('Storage quota exceeded! Please export your data and free up space.', 'error');
         }
       } else {
         setStorageError('Failed to save recording');
@@ -402,7 +405,7 @@ function App() {
       if (err instanceof StorageError) {
         setStorageError(err.message);
         if (err.code === 'QUOTA_EXCEEDED') {
-          alert('Storage quota exceeded! Please export your data and free up space.');
+          showToast('Storage quota exceeded! Please export your data and free up space.', 'error');
         }
       } else {
         setStorageError('Failed to save recording');
@@ -781,6 +784,8 @@ function App() {
             onTranscriptUpdate={handleTranscriptUpdate}
             onAttachImage={handleAttachImage}
             isSignedIn={isSignedIn}
+            onShowToast={showToast}
+            onShowConfirm={setConfirmDialog}
           />
         </div>
       </main>
@@ -837,6 +842,22 @@ function App() {
         onClose={handleMicSettingsClose}
         onDeviceSelect={handleMicDeviceSelect}
       />
+
+      {confirmDialog && (
+        <ConfirmDialog
+          isOpen={true}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          confirmText={confirmDialog.confirmText}
+          cancelText={confirmDialog.cancelText}
+          dangerous={confirmDialog.dangerous}
+          onConfirm={confirmDialog.onConfirm}
+          onClose={() => {
+            if (confirmDialog.onCancel) confirmDialog.onCancel();
+            setConfirmDialog(null);
+          }}
+        />
+      )}
     </div>
   );
 }

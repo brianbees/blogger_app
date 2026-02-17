@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { exportAllData, importData, clearAllData, checkStorageQuota } from '../utils/storage';
+import ConfirmDialog from './ConfirmDialog';
 
 export default function DataManager({ onDataChange, onModalChange }) {
   const [isOpen, setIsOpen] = useState(false);
   const [status, setStatus] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [quota, setQuota] = useState(null);
+  const [showConfirmClear, setShowConfirmClear] = useState(false);
 
   useEffect(() => {
     if (onModalChange) {
@@ -71,9 +73,10 @@ export default function DataManager({ onDataChange, onModalChange }) {
   };
 
   const handleClearAll = async () => {
-    if (!window.confirm('Are you sure you want to delete ALL recordings? This cannot be undone.')) {
-      return;
-    }
+    setShowConfirmClear(true);
+  };
+
+  const performClearAll = async () => {
 
     try {
       setIsProcessing(true);
@@ -241,6 +244,17 @@ export default function DataManager({ onDataChange, onModalChange }) {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={showConfirmClear}
+        onClose={() => setShowConfirmClear(false)}
+        onConfirm={performClearAll}
+        title="Delete All Recordings?"
+        message="Are you sure you want to delete ALL recordings? This action cannot be undone."
+        confirmText="Delete All"
+        cancelText="Cancel"
+        dangerous={true}
+      />
     </>
   );
 }

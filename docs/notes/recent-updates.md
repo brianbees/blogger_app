@@ -2,6 +2,48 @@
 
 ## February 2026
 
+### Popup-Free UX Implementation (2026-02-17)
+
+**Browser Popups Eliminated:**
+- All `alert()` calls replaced with Toast notifications
+- All `confirm()` calls replaced with custom ConfirmDialog component
+- `window.open()` replaced with programmatic anchor element clicks
+- Mobile-friendly UI for all user confirmations
+
+**New ConfirmDialog Component:**
+- `src/components/ConfirmDialog.jsx` - Reusable confirmation dialog
+- Mobile-optimized with touch targets (48px minimum)
+- Backdrop blur with click-to-dismiss
+- Keyboard support (Escape key closes)
+- Dangerous action styling (red for destructive operations)
+- ARIA-compliant for accessibility
+
+**Toast Notification Expansion:**
+- Storage quota warnings now use Toast instead of alert()
+- Transcription errors show Toast messages
+- Image validation errors display as Toast notifications
+- Consistent error/success/warning messaging throughout app
+
+**Enhanced Mobile Compatibility:**
+- Google OAuth error messages detect popup blockers
+- Published blog post links use anchor elements (no popup blocking)
+- All confirmations work seamlessly on mobile devices
+- No browser permission dialogs except microphone access
+
+**User Confirmation Updates:**
+- Draft recovery: Custom dialog with preview
+- Delete recording/image: Styled confirmation dialog
+- Clear all data: Dangerous action confirmation
+- Remove attached image: Confirmation with context
+
+**File References:**
+- `src/components/ConfirmDialog.jsx` - New confirmation dialog component
+- `src/App.jsx` - Integrated Toast/Dialog state management
+- `src/components/DataManager.jsx` - Uses ConfirmDialog for delete all
+- `src/components/SnippetCard.jsx` - Toast for errors, Dialog for confirmations
+- `src/components/CloudSync.jsx` - Enhanced OAuth error messages
+- `src/components/DailyFeed.jsx` - Passes handlers to child components
+
 ### Recording Finalization & Security Hardening (2026-02-16)
 
 **Race-Proof MediaRecorder Stop:**

@@ -388,6 +388,7 @@ src/
 │   ├── DataManager.jsx           # Export/import/quota modal
 │   ├── CloudSync.jsx             # Google sign-in + blog selection
 │   ├── PublishModal.jsx          # Publishing progress UI
+│   ├── ConfirmDialog.jsx         # Reusable confirmation dialog (replaces window.confirm)
 │   ├── Toast.jsx                 # Toast notification system
 │   └── MicrophoneSelector.jsx    # Audio device selection (unused)
 │
@@ -417,6 +418,7 @@ App
 ├── ImagePreviewSheet (conditional)
 ├── ImageViewer (conditional)
 ├── Toast (notifications)
+├── ConfirmDialog (confirmations)
 ├── main
 │   └── DailyFeed
 │       └── SnippetCard[] (audio/image cards)
@@ -438,10 +440,13 @@ App
 - `selectedBlogId` - Selected Blogger blog
 - `isCloudSyncOpen` - Cloud sync modal visibility
 - `publishSnippet` - Snippet being published
-- `toast` - Toast notification state
+- `confirmDialog` - Confirmation dialog state
 - `imagePreview` - Image preview state
 - `fullscreenImage` - Fullscreen viewer state
 
+**No global state library** (Redux, Zustand, etc.) - Props and callbacks only.
+
+**No Browser Popups** - All alerts/confirms use in-app Toast/ConfirmDialog components
 **No global state library** (Redux, Zustand, etc.) - Props and callbacks only.
 
 ---

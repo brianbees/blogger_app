@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from 'react';
 import { transcribeAudio } from '../services/speechToTextService';
 import { ensureBlobMimeType } from '../utils/imageUtils';
 
-export default function SnippetCard({ snippet, onDelete, onImageClick, onPublishClick, isSignedIn, onTranscriptUpdate, onAttachImage }) {
+export default function SnippetCard({ snippet, onDelete, onImageClick, onPublishClick, isSignedIn, onTranscriptUpdate, onAttachImage, onShowToast, onShowConfirm }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [imageUrl, setImageUrl] = useState(null);
@@ -31,7 +31,6 @@ export default function SnippetCard({ snippet, onDelete, onImageClick, onPublish
   // Handle image blob URL (for image snippets OR audio snippets with attached image)
   useEffect(() => {
     let mounted = true;
-    let urlToRevoke = null;
     
     const createImageUrl = async () => {
       if (snippet.mediaBlob) {
@@ -40,7 +39,6 @@ export default function SnippetCard({ snippet, onDelete, onImageClick, onPublish
           const blob = await ensureBlobMimeType(snippet.mediaBlob, snippet.mimeType);
           if (mounted) {
             const url = URL.createObjectURL(blob);
-            urlToRevoke = url;
             setImageUrl(url);
           }
         } catch (err) {
@@ -60,8 +58,8 @@ export default function SnippetCard({ snippet, onDelete, onImageClick, onPublish
 
     return () => {
       mounted = false;
-      if (urlToRevoke) {
-        URL.revokeObjectURL(urlToRevoke);
+      if (imageUrl) {
+        URL.revokeObjectURL(imageUrl);
       }
     };
   }, [snippet.mediaBlob, snippet.mimeType]);
@@ -159,7 +157,18 @@ export default function SnippetCard({ snippet, onDelete, onImageClick, onPublish
 
   const handleDelete = () => {
     const message = snippet.type === 'image' ? 'Delete this image?' : 'Delete this recording?';
-    if (window.confirm(message)) {
+    if (onShowConfirm) {
+      onShowConfirm({
+        title: snippet.type === 'image' ? 'Delete Image?' : 'Delete Recording?',
+        message: message,
+        confirmText: 'Delete',
+        cancelText: 'Cancel',
+        dangerous: true,
+        onConfirm: () => {
+          onDelete(snippet.id);
+        }
+      });
+    } else {
       onDelete(snippet.id);
     }
   };
@@ -193,7 +202,14 @@ export default function SnippetCard({ snippet, onDelete, onImageClick, onPublish
     
     // If already published, open the blog post
     if (snippet.publishedAt && snippet.blogPostUrl) {
-      window.open(snippet.blogPostUrl, '_blank', 'noopener,noreferrer');
+      // Use anchor element for better mobile compatibility
+      const a = document.createElement('a');
+      a.href = snippet.blogPostUrl;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
       return;
     }
     
@@ -216,14 +232,18 @@ export default function SnippetCard({ snippet, onDelete, onImageClick, onPublish
     // Validate file type
     const allowedTypes = ['image/jpeg', 'image/png'];
     if (!allowedTypes.includes(file.type)) {
-      alert('Please select a JPG or PNG image');
+      if (onShowToast) {
+        onShowToast('Please select a JPG or PNG image', 'error');
+      }
       return;
     }
 
     // Validate file size (10MB max)
     const maxSize = 10 * 1024 * 1024;
     if (file.size > maxSize) {
-      alert('Image must be less than 10MB');
+      if (onShowToast) {
+        onShowToast('Image must be less than 10MB', 'error');
+      }
       return;
     }
 
@@ -238,10 +258,21 @@ export default function SnippetCard({ snippet, onDelete, onImageClick, onPublish
   };
 
   const handleRemoveImage = () => {
-    if (window.confirm('Remove attached image?')) {
-      if (onAttachImage) {
-        onAttachImage(snippet.id, null);
-      }
+    if (onShowConfirm) {
+      onShowConfirm({
+        title: 'Remove Image?',
+        message: 'Are you sure you want to remove the attached image?',
+        confirmText: 'Remove',
+        cancelText: 'Cancel',
+        dangerous: true,
+        onConfirm: () => {
+          if (onAttachImage) {
+            onAttachImage(snippet.id, null);
+          }
+        }
+      });
+    } else if (onAttachImage) {
+      onAttachImage(snippet.id, null);
     }
   };
 
@@ -266,7 +297,9 @@ export default function SnippetCard({ snippet, onDelete, onImageClick, onPublish
     } catch (error) {
       clearTimeout(timeoutId);
       console.error('Transcription error:', error);
-      alert(`Transcription failed: ${error.message}`);
+      if (onShowToast) {
+        onShowToast(`Transcription failed: ${error.message}`, 'error');
+      }
       setIsTranscribing(false);
     }
   };
