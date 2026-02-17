@@ -10,6 +10,33 @@ Write-Host "🚀 Voice Journal PWA Deployment" -ForegroundColor Cyan
 Write-Host "================================" -ForegroundColor Cyan
 Write-Host ""
 
+# --- Auto-bump patch version in package.json ---
+Write-Host "🔢 Bumping version..." -ForegroundColor Yellow
+$pkgContent = Get-Content "package.json" -Raw
+if ($pkgContent -match '"version":\s*"(\d+)\.(\d+)\.(\d+)"') {
+    $major = $matches[1]; $minor = $matches[2]; $patch = [int]$matches[3] + 1
+    $newVersion = "$major.$minor.$patch"
+    $pkgContent = $pkgContent -replace '"version":\s*"\d+\.\d+\.\d+"', "\"version\": \"$newVersion\""
+    Set-Content "package.json" $pkgContent -NoNewline
+    Write-Host "✅ Version bumped to v$newVersion" -ForegroundColor Green
+} else {
+    Write-Host "⚠️  Could not parse version from package.json, continuing without bump" -ForegroundColor Yellow
+    $newVersion = "unknown"
+}
+Write-Host ""
+
+# --- Commit and push version bump to git ---
+Write-Host "📤 Pushing version bump to GitHub..." -ForegroundColor Yellow
+git add package.json
+git commit -m "Bump version to v$newVersion"
+git push origin main
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "⚠️  Git push failed (continuing with deploy)" -ForegroundColor Yellow
+} else {
+    Write-Host "✅ Pushed to GitHub" -ForegroundColor Green
+}
+Write-Host ""
+
 # Check if .env.deploy exists
 if (-not (Test-Path ".env.deploy")) {
     Write-Host "❌ Error: .env.deploy file not found!" -ForegroundColor Red
