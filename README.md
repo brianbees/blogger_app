@@ -1,20 +1,21 @@
 # 🎙️ Voice Journal PWA
 
-A mobile-first Progressive Web App for capturing and organizing voice notes and images. Features automatic transcription and one-click publishing to Blogger.
+A mobile-first Progressive Web App for capturing and organizing voice notes and images. Features automatic transcription, image attachments, and one-click publishing to Blogger. Optimized for Samsung devices and all modern mobile browsers.
 
-## Features
+## ✨ Features
 
-- 🎤 **Voice Recording** - Capture audio snippets with real-time waveform visualization
-- ⏺️ **Continuous Recording** - Record long thoughts (2+ minutes) with auto-chunking and progressive transcription
-- 🖼️ **Image Notes** - Upload photos with captions
-- 🎙️ **Auto-Transcribe** - Automatic speech-to-text transcription
-- 📝 **Publish to Blogger** - One-click blog post creation with visual status tracking
-- 💾 **Local-First** - Works offline with IndexedDB storage
-- 📱 **Install as App** - PWA with full-screen mode on mobile
-- 🔐 **No Backend** - All cloud APIs called client-side (OAuth 2.0)
-- ✅ **Smart Status** - Green → for ready posts, blue ✓ for published posts
+- 🎤 **Continuous Recording** - Long-form voice notes with 25-second auto-chunking for reliable mobile recording
+- 🌐 **Live Transcription** - Real-time speech-to-text as you record (works offline for recording, online for transcription)
+- 🖼️ **Image Attachments** - Attach photos to voice notes or upload standalone images with captions
+- 📱 **Mobile-Optimized** - Tested on Samsung S21, works flawlessly on all modern mobile browsers
+- 🎙️ **Auto-Save Drafts** - Automatic draft recovery if browser crashes during recording
+- 📝 **Publish to Blogger** - One-click blog post creation with automatic image uploads to Google Drive
+- 💾 **Local-First Storage** - Works completely offline with IndexedDB, no backend required
+- 🚫 **Popup-Free UX** - Mobile-friendly confirmations and toasts, no browser popups
+- 📲 **Install as App** - Progressive Web App with full-screen mode and offline support
+- 🔐 **Privacy-First** - All cloud APIs called client-side, credentials stay in your browser
 
-**Daily organization** • **Audio playback** • **Image viewer** • **Export/Import** • **Google Drive backup**
+**Daily organization** • **Waveform visualization** • **Full-screen image viewer** • **Export/Import** • **Cloud backup**
 
 ## Quick Start
 
