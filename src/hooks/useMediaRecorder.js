@@ -133,8 +133,9 @@ export function useMediaRecorder() {
         }
       };
 
-      // Start recording
-      mediaRecorder.start();
+      // Start recording with timeslice to prevent automatic stop on some browsers
+      // Request data every 10 seconds to keep MediaRecorder active
+      mediaRecorder.start(10000);
       setIsRecording(true);
       setError(null);
       setTimer(0);
