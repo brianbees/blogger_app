@@ -36,14 +36,37 @@ export default function SnippetCard({ snippet, onDelete, onImageClick, onPublish
     const createImageUrl = async () => {
       if (snippet.mediaBlob) {
         try {
+          console.log('[SnippetCard] Creating image URL:', {
+            snippetId: snippet.id,
+            blobSize: snippet.mediaBlob.size,
+            blobType: snippet.mediaBlob.type,
+            storedMimeType: snippet.mimeType
+          });
+
           // Ensure Blob has correct MIME type for mobile compatibility (S21, etc.)
           const blob = await ensureBlobMimeType(snippet.mediaBlob, snippet.mimeType);
+          
+          if (!blob || blob.size === 0) {
+            console.error('[SnippetCard] ensureBlobMimeType returned empty blob');
+            if (mounted) {
+              setImageUrl(null);
+            }
+            return;
+          }
+
           if (mounted) {
             createdUrl = URL.createObjectURL(blob);
+            console.log('[SnippetCard] Image URL created successfully:', createdUrl);
             setImageUrl(createdUrl);
           }
         } catch (err) {
-          console.error('[SnippetCard] Failed to create image URL:', err);
+          console.error('[SnippetCard] Failed to create image URL:', {
+            error: err,
+            snippetId: snippet.id,
+            hasBlobProperty: !!snippet.mediaBlob,
+            blobSize: snippet.mediaBlob?.size,
+            blobType: snippet.mediaBlob?.type
+          });
           if (mounted) {
             setImageUrl(null);
           }

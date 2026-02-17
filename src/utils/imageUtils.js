@@ -66,12 +66,36 @@ export async function detectImageMimeType(blob) {
  * Creates a new Blob with explicit MIME type if needed
  */
 export async function ensureBlobMimeType(blob, storedMimeType = null) {
-  if (!blob) return null;
+  if (!blob) {
+    console.warn('[imageUtils] ensureBlobMimeType called with null/undefined blob');
+    return null;
+  }
+
+  // Check if blob is actually a Blob/File object
+  if (!(blob instanceof Blob)) {
+    console.error('[imageUtils] Input is not a Blob object:', typeof blob);
+    return null;
+  }
+
+  // Check blob size
+  if (blob.size === 0) {
+    console.error('[imageUtils] Blob has zero size');
+    return null;
+  }
 
   // If stored MIME type is provided and Blob lacks it, use stored type
   if (storedMimeType && (!blob.type || blob.type === '')) {
     console.log('[imageUtils] Recreating Blob with stored MIME type:', storedMimeType);
-    return new Blob([blob], { type: storedMimeType });
+    try {
+      const newBlob = new Blob([blob], { type: storedMimeType });
+      if (newBlob.size !== blob.size) {
+        console.error('[imageUtils] Blob recreation changed size:', { original: blob.size, new: newBlob.size });
+      }
+      return newBlob;
+    } catch (err) {
+      console.error('[imageUtils] Failed to recreate Blob:', err);
+      return blob; // Return original if recreation fails
+    }
   }
 
   // If Blob already has a valid MIME type, return as-is
@@ -80,13 +104,26 @@ export async function ensureBlobMimeType(blob, storedMimeType = null) {
   }
 
   // Otherwise, try to detect MIME type from file signature
-  const detectedType = await detectImageMimeType(blob);
-  if (detectedType) {
-    console.log('[imageUtils] Recreating Blob with detected MIME type:', detectedType);
-    return new Blob([blob], { type: detectedType });
+  try {
+    const detectedType = await detectImageMimeType(blob);
+    if (detectedType) {
+      console.log('[imageUtils] Recreating Blob with detected MIME type:', detectedType);
+      const newBlob = new Blob([blob], { type: detectedType });
+      if (newBlob.size !== blob.size) {
+        console.error('[imageUtils] Blob recreation changed size:', { original: blob.size, new: newBlob.size });
+      }
+      return newBlob;
+    }
+  } catch (err) {
+    console.error('[imageUtils] Failed to detect MIME type:', err);
   }
 
   // Fallback: assume JPEG if all else fails (most common format)
   console.warn('[imageUtils] Could not determine MIME type, defaulting to image/jpeg');
-  return new Blob([blob], { type: 'image/jpeg' });
+  try {
+    return new Blob([blob], { type: 'image/jpeg' });
+  } catch (err) {
+    console.error('[imageUtils] Failed to create fallback Blob:', err);
+    return blob; // Return original as last resort
+  }
 }

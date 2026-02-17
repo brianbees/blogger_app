@@ -2,6 +2,60 @@
 
 ## February 2026
 
+### Image Attachment Storage Fix (2026-02-17)
+
+**Critical Bug Fixed:**
+- Images failing to attach to audio recordings
+- "Attached to recording" message shown but broken image icon displayed  
+- Images being saved but not loaded correctly from IndexedDB
+
+**Root Causes:**
+1. **Export/Import logic flaw**: When audio snippet had BOTH `audioBlob` (recording) AND `mediaBlob` (attached image), only `audioBlob` was exported/imported
+2. **Insufficient validation**: Blob creation from File not validated for size/integrity
+3. **Poor error handling**: Silent failures in image URL creation
+
+**Solutions Implemented:**
+
+**1. Fixed Export Logic (storage.js):**
+- Changed from if/else to independent checks for both blobs
+- Now exports BOTH `audioBlob` AND `mediaBlob` when present
+- Handles audio snippets with attached images correctly
+
+**2. Fixed Import Logic (storage.js):**  
+- Independently imports both `audioBlob` and `mediaBlob`
+- Uses `typeof === 'string'` check to detect base64-encoded blobs
+- Preserves both blobs when importing audio with attached images
+
+**3. Enhanced Image Attachment (App.jsx):**
+- Reads file as ArrayBuffer before creating Blob (ensures data is loaded)
+- Validates Blob size matches original file size
+- Comprehensive logging at each step for debugging
+- Fails fast with clear error messages
+
+**4. Improved Error Handling (SnippetCard.jsx):**
+- Detailed logging when creating image URLs
+- Checks for empty/invalid blobs before URL creation
+- Logs blob properties for debugging mobile issues
+
+**5. Defensive Blob Processing (imageUtils.js):**
+- Validates blob is actually a Blob object
+- Checks blob size is non-zero
+- Verifies blob size doesn't change during MIME type recreation
+- Returns original blob if recreation fails (graceful degradation)
+- Try-catch around all Blob operations
+
+**Technical Details:**
+- Audio snippets can now properly have: `audioBlob` (recording) + `mediaBlob` (image) + `mimeType`
+- Export/import handles all combinations: audio-only, image-only, audio+image  
+- Blob creation validated with ArrayBuffer intermediate step
+- All operations logged for mobile debugging
+
+**Files Modified:**
+- `src/utils/storage.js` - Fixed export/import for dual-blob snippets
+- `src/App.jsx` - Enhanced handleAttachImage with validation
+- `src/components/SnippetCard.jsx` - Better error logging for image display
+- `src/utils/imageUtils.js` - Defensive blob operations with validation
+
 ### Samsung S21 Image Attachment Fix (2026-02-17)
 
 **Problem Fixed:**

@@ -193,23 +193,24 @@ export async function exportAllData() {
     const snippets = await getAllSnippets();
     const exportData = await Promise.all(
       snippets.map(async (snippet) => {
-        if (snippet.type === 'image' && snippet.mediaBlob) {
-          const mediaBase64 = await blobToBase64(snippet.mediaBlob);
-          return {
-            ...snippet,
-            mediaBlob: mediaBase64,
-            // Use stored mimeType property or fallback to blob type
-            mediaBlobType: snippet.mimeType || snippet.mediaBlob.type || 'image/jpeg',
-          };
-        } else if (snippet.audioBlob) {
+        const exportedSnippet = { ...snippet };
+
+        // Export audio blob if present (for audio recordings)
+        if (snippet.audioBlob) {
           const audioBase64 = await blobToBase64(snippet.audioBlob);
-          return {
-            ...snippet,
-            audioBlob: audioBase64,
-            audioBlobType: snippet.audioBlob.type || 'audio/webm',
-          };
+          exportedSnippet.audioBlob = audioBase64;
+          exportedSnippet.audioBlobType = snippet.audioBlob.type || 'audio/webm';
         }
-        return snippet;
+
+        // Export media blob if present (for images OR images attached to audio)
+        if (snippet.mediaBlob) {
+          const mediaBase64 = await blobToBase64(snippet.mediaBlob);
+          exportedSnippet.mediaBlob = mediaBase64;
+          // Use stored mimeType property or fallback to blob type
+          exportedSnippet.mediaBlobType = snippet.mimeType || snippet.mediaBlob.type || 'image/jpeg';
+        }
+
+        return exportedSnippet;
       })
     );
     
@@ -255,16 +256,20 @@ export async function importData(exportedData) {
         
         const snippetToImport = { ...snippet, dataVersion: DATA_VERSION };
         
-        if (snippet.type === 'image' && snippet.mediaBlob) {
+        // Import audio blob if present (for audio recordings)
+        if (snippet.audioBlob && typeof snippet.audioBlob === 'string') {
+          const audioBlob = base64ToBlob(snippet.audioBlob, snippet.audioBlobType || 'audio/webm');
+          snippetToImport.audioBlob = audioBlob;
+          delete snippetToImport.audioBlobType;
+        }
+
+        // Import media blob if present (for images OR images attached to audio)
+        if (snippet.mediaBlob && typeof snippet.mediaBlob === 'string') {
           const mimeType = snippet.mediaBlobType || snippet.mimeType || 'image/jpeg';
           const mediaBlob = base64ToBlob(snippet.mediaBlob, mimeType);
           snippetToImport.mediaBlob = mediaBlob;
           snippetToImport.mimeType = mimeType; // Store MIME type for mobile compatibility
           delete snippetToImport.mediaBlobType;
-        } else if (snippet.audioBlob) {
-          const audioBlob = base64ToBlob(snippet.audioBlob, snippet.audioBlobType || 'audio/webm');
-          snippetToImport.audioBlob = audioBlob;
-          delete snippetToImport.audioBlobType;
         }
         
         await store.put(snippetToImport);

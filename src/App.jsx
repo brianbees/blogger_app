@@ -441,16 +441,45 @@ function App() {
           }
         }
 
+        // Read file as ArrayBuffer first to ensure it's properly loaded
+        const arrayBuffer = await file.arrayBuffer();
+        console.log('[App] Attaching image:', {
+          fileName: file.name,
+          fileSize: file.size,
+          mimeType: mimeType,
+          arrayBufferSize: arrayBuffer.byteLength
+        });
+
         // Add/replace image - create proper Blob with explicit MIME type for mobile compatibility
-        const imageBlob = new Blob([file], { type: mimeType });
+        const imageBlob = new Blob([arrayBuffer], { type: mimeType });
+        
+        // Verify blob was created correctly
+        if (imageBlob.size === 0 || imageBlob.size !== file.size) {
+          console.error('[App] Blob creation failed:', {
+            originalSize: file.size,
+            blobSize: imageBlob.size
+          });
+          showToast('Failed to process image data', 'error');
+          return;
+        }
+
         updatedSnippet = {
           ...snippet,
           mediaBlob: imageBlob,
           mimeType: mimeType, // Store MIME type separately for mobile compatibility
           caption: snippet.caption || null,
         };
+
+        console.log('[App] Updated snippet with image:', {
+          id: updatedSnippet.id,
+          hasAudioBlob: !!updatedSnippet.audioBlob,
+          hasMediaBlob: !!updatedSnippet.mediaBlob,
+          mediaBlobSize: updatedSnippet.mediaBlob?.size,
+          mimeType: updatedSnippet.mimeType
+        });
       } else {
         // Remove image
+        console.log('[App] Removing image from snippet:', snippetId);
         updatedSnippet = { ...snippet };
         delete updatedSnippet.mediaBlob;
         delete updatedSnippet.mimeType;
@@ -463,6 +492,7 @@ function App() {
 
       // Save to IndexedDB in background
       await saveSnippet(updatedSnippet);
+      console.log('[App] Snippet with image saved to IndexedDB successfully');
     } catch (err) {
       console.error('Failed to attach image:', err);
       showToast('Failed to attach image', 'error');
